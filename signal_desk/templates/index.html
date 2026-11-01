@@ -74,8 +74,11 @@
       <p class="ladder-note">{{ s.ladder_note_fr }}</p>
 
       {% if ladder %}
+      {% if ladder.risk_budget_note_fr %}
+      <p class="muted small">{{ ladder.risk_budget_note_fr }}</p>
+      {% endif %}
       <table class="slice-table">
-        <caption>Tranches @ {{ "%.0f"|format(ladder.risk_budget_usd) }} USD de risque (total {{ "%.2f"|format(ladder.total_lots) }} lot)</caption>
+        <caption>Tranches @ {{ "%.0f"|format(ladder.risk_budget_usd) }} USD de risque (total {{ "%.2f"|format(ladder.total_lots) }} lot, ~{{ "%.2f"|format(ladder.total_risk_at_stop_usd) }} USD au stop)</caption>
         <thead>
           <tr><th>TP</th><th>Prix</th><th>Lots</th><th>USD ~</th><th>Action</th></tr>
         </thead>
@@ -128,7 +131,7 @@
       <tbody>
         {% for sz in week_sizing %}
         {% set row = sz.rows[1] %}
-        {% set lad = sz.ladder_100 %}
+        {% set lad = sz.ladder_week %}
         <tr>
           <td>{{ sz.symbol }}</td>
           <td>{{ "%.2f"|format(row.lots) }}</td>

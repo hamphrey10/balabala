@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from signal_desk.analysis import SignalResult, analyze
 from signal_desk.data import INSTRUMENTS, fetch_h4
-from signal_desk.sizing import CONTRACT_NOTE_FR, SymbolSizing, build_sizing
+from signal_desk.sizing import CONTRACT_NOTE_FR, WEEK_RISK_USD, SymbolSizing, build_sizing
 
 BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="Bureau de signaux", docs_url=None, redoc_url=None)
@@ -47,7 +47,7 @@ def _load_signals() -> tuple[list[SignalResult], str | None]:
 async def index(request: Request) -> HTMLResponse:
     signals, fetch_error = _load_signals()
     week_sizing: list[SymbolSizing] = [build_sizing(s) for s in signals]
-    ladder_by_symbol = {sz.symbol: sz.ladder_100 for sz in week_sizing if sz.ladder_100}
+    ladder_by_symbol = {sz.symbol: sz.ladder_week for sz in week_sizing if sz.ladder_week}
     updated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     return templates.TemplateResponse(
         request,
@@ -57,7 +57,7 @@ async def index(request: Request) -> HTMLResponse:
             "week_sizing": week_sizing,
             "ladder_by_symbol": ladder_by_symbol,
             "contract_note": CONTRACT_NOTE_FR,
-            "week_risk_usd": 100.0,
+            "week_risk_usd": WEEK_RISK_USD,
             "horizon": HORIZON_LABEL,
             "updated": updated,
             "fetch_error": fetch_error,
