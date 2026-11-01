@@ -24,8 +24,7 @@
 
   <main class="grid">
     {% for s in signals %}
-    {% set micro = micro_by_symbol.get(s.symbol) %}
-    {% set ladder = ladder_by_symbol.get(s.symbol) %}
+    {% set wl = week_ladder_by_symbol.get(s.symbol) %}
     <article class="card {% if s.signal_active %}active{% else %}plan{% endif %}">
       <header class="card-head">
         <h2>{{ s.symbol }}</h2>
@@ -74,42 +73,31 @@
 
       <p class="ladder-note">{{ s.ladder_note_fr }}</p>
 
-      {% if micro %}
+      {% if wl %}
       <div class="micro-plan">
-        <h3 class="micro-title">Phase {{ "%.0f"|format(micro.risk_budget_usd) }} USD (exécutable)</h3>
-        <p class="micro-order">{{ micro.order_summary_fr }}</p>
-        <dl class="levels micro-levels">
-          <div><dt>Lots</dt><dd>{{ "%.2f"|format(micro.lots) }}</dd></div>
-          <div><dt>Risque au stop</dt><dd>{{ "%.2f"|format(micro.stop_risk_usd) }} USD</dd></div>
-          <div><dt>Take profit unique (~1R)</dt><dd>{{ "%.2f"|format(micro.take_profit_price) }}</dd></div>
-          <div><dt>Gain ~ au TP</dt><dd>{{ "%.2f"|format(micro.take_profit_usd) }} USD</dd></div>
-        </dl>
-        {% if micro.risk_note_fr %}<p class="muted small">{{ micro.risk_note_fr }}</p>{% endif %}
-        <p class="muted small">{{ micro.ladder_unavailable_fr }}</p>
-      </div>
-      {% endif %}
-
-      {% if ladder %}
-      <details class="ladder-details">
-        <summary>Échelle 4×0,01 lot (à partir de 0,04 lot — hors phase 20 USD)</summary>
+        <h3 class="micro-title">Phase {{ "%.0f"|format(wl.risk_budget_usd) }} USD — 4×{{ "%.3f"|format(wl.slice_lots) }} lot</h3>
+        <p class="micro-order">{{ wl.order_summary_fr }}</p>
+        <p class="muted small">{{ wl.broker_note_fr }}</p>
+        {% if wl.risk_budget_note_fr %}<p class="muted small">{{ wl.risk_budget_note_fr }}</p>{% endif %}
         <table class="slice-table">
-          <caption>~{{ "%.2f"|format(ladder.total_risk_at_stop_usd) }} USD au stop · cumul ~{{ "%.2f"|format(ladder.ladder_total_usd) }} USD</caption>
+          <caption>{{ "%.3f"|format(wl.total_lots) }} lot total · ~{{ "%.2f"|format(wl.total_risk_at_stop_usd) }} USD au stop</caption>
           <thead>
-            <tr><th>TP</th><th>Prix</th><th>Lots</th><th>USD ~</th></tr>
+            <tr><th>TP</th><th>Prix</th><th>Lot tranche</th><th>USD ~</th><th>Action</th></tr>
           </thead>
           <tbody>
-            {% for sl in ladder.slices %}
+            {% for sl in wl.slices %}
             <tr>
               <td>TP{{ sl.index }}</td>
               <td>{{ "%.2f"|format(sl.price) }}</td>
-              <td>{{ "%.2f"|format(sl.lots) }}</td>
+              <td>{{ "%.3f"|format(sl.lots) }}</td>
               <td>{{ "%.2f"|format(sl.usd_locked) }}</td>
+              <td>{{ sl.action_fr }}</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
-        <p class="muted small">{{ ladder.risk_after_tp1_note_fr }}</p>
-      </details>
+        <p class="muted small">{{ wl.risk_after_tp1_note_fr }}</p>
+      </div>
       {% endif %}
 
       <p class="plan-sentence">{{ s.commentary }}</p>
@@ -138,28 +126,28 @@
       <thead>
         <tr>
           <th>Symbole</th>
-          <th>Lots</th>
-          <th>Risque au stop</th>
-          <th>TP unique (~1R)</th>
-          <th>Gain ~</th>
+          <th>Total lot</th>
+          <th>Tranche</th>
+          <th>Risque stop</th>
+          <th>Cumul 4 TP ~</th>
         </tr>
       </thead>
       <tbody>
         {% for sz in week_sizing %}
-        {% set m = sz.week_micro %}
+        {% set w = sz.week_ladder %}
         <tr>
-          <td>{{ sz.symbol }}</td>
-          <td>{{ "%.2f"|format(m.lots) }}</td>
-          <td>{{ "%.2f"|format(m.stop_risk_usd) }} USD</td>
-          <td>{{ "%.2f"|format(m.take_profit_price) }}</td>
-          <td>{{ "%.2f"|format(m.take_profit_usd) }} USD</td>
+          <td>{{ w.symbol }}</td>
+          <td>{{ "%.3f"|format(w.total_lots) }}</td>
+          <td>{{ "%.3f"|format(w.slice_lots) }}</td>
+          <td>{{ "%.2f"|format(w.total_risk_at_stop_usd) }} USD</td>
+          <td>{{ "%.2f"|format(w.ladder_total_usd) }} USD</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     <p class="week-hint muted">
-      Phase {{ "%.0f"|format(week_risk_usd) }} USD = <strong>0,01 lot</strong>, <strong>un TP</strong>, clôture totale.
-      Échelle 4 TP : minimum <strong>0,04 lot</strong> — voir <code>docs/plan-semaine.md</code>.
+      Pas de promesse de gain. Granularité 0,001 lot requise ; si le courtier impose 0,01 minimum, cette échelle 4 TP ne peut pas être placée.
+      Voir <code>docs/plan-semaine.md</code>.
     </p>
   </section>
 

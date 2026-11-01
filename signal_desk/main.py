@@ -47,8 +47,7 @@ def _load_signals() -> tuple[list[SignalResult], str | None]:
 async def index(request: Request) -> HTMLResponse:
     signals, fetch_error = _load_signals()
     week_sizing: list[SymbolSizing] = [build_sizing(s) for s in signals]
-    micro_by_symbol = {sz.symbol: sz.week_micro for sz in week_sizing}
-    ladder_by_symbol = {sz.symbol: sz.ladder_at_min_size for sz in week_sizing if sz.ladder_at_min_size}
+    week_ladder_by_symbol = {sz.symbol: sz.week_ladder for sz in week_sizing}
     updated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     return templates.TemplateResponse(
         request,
@@ -56,8 +55,7 @@ async def index(request: Request) -> HTMLResponse:
         {
             "signals": signals,
             "week_sizing": week_sizing,
-            "micro_by_symbol": micro_by_symbol,
-            "ladder_by_symbol": ladder_by_symbol,
+            "week_ladder_by_symbol": week_ladder_by_symbol,
             "contract_note": CONTRACT_NOTE_FR,
             "week_risk_usd": WEEK_RISK_USD,
             "horizon": HORIZON_LABEL,
