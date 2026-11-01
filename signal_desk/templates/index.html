@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bureau de signaux — Or &amp; Argent</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div>
+      <h1>Bureau de signaux</h1>
+      <p class="subtitle">XAUUSD &amp; XAGUSD — exécution manuelle, sans connexion courtier</p>
+    </div>
+    <div class="meta">
+      <span class="pill horizon">{{ horizon }}</span>
+      <span class="updated">MAJ {{ updated }}</span>
+    </div>
+  </header>
+
+  {% if fetch_error %}
+  <div class="banner error">{{ fetch_error }}</div>
+  {% endif %}
+
+  <main class="grid">
+    {% for s in signals %}
+    <article class="card {% if s.signal_active %}active{% else %}withheld{% endif %}">
+      <header class="card-head">
+        <h2>{{ s.symbol }}</h2>
+        <span class="bias bias-{{ s.bias.value }}">{{ s.bias.value | capitalize }}</span>
+      </header>
+
+      <div class="price-row">
+        <span class="price">{{ "%.2f"|format(s.last_price) }}</span>
+        <span class="price-note" title="{{ s.data_source }}">{{ s.price_note_fr }}</span>
+      </div>
+
+      {% if s.signal_active %}
+      <dl class="levels">
+        <div>
+          <dt>Zone d'entrée</dt>
+          <dd>{{ "%.2f"|format(s.entry_zone_low) }} – {{ "%.2f"|format(s.entry_zone_high) }}</dd>
+        </div>
+        <div>
+          <dt>Stop loss</dt>
+          <dd>{{ "%.2f"|format(s.stop_loss) }}</dd>
+        </div>
+        <div>
+          <dt>Take profit 1</dt>
+          <dd>{{ "%.2f"|format(s.take_profit_1) }}</dd>
+        </div>
+        <div>
+          <dt>Take profit 2</dt>
+          <dd>{{ "%.2f"|format(s.take_profit_2) }}</dd>
+        </div>
+        <div class="rr">
+          <dt>Rapport gain / risque</dt>
+          <dd>{{ s.reward_risk }}×</dd>
+        </div>
+      </dl>
+      <p class="comment">{{ s.commentary }}</p>
+      {% else %}
+      <div class="withhold">
+        <strong>Signal non publié</strong>
+        <p>{{ s.withhold_reason or "Setup incomplet." }}</p>
+        {% if s.reward_risk is not none %}
+        <p class="muted">R/R calculé vers TP1 : {{ s.reward_risk }}× (seuil : 2×)</p>
+        {% endif %}
+        {% if s.commentary %}
+        <p class="comment muted">{{ s.commentary }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <footer class="card-foot">
+        <small>Source : {{ s.data_source }}</small>
+      </footer>
+    </article>
+    {% endfor %}
+  </main>
+
+  <footer class="disclaimer">
+    Aucun signal n'est une certitude. Vous passez chaque ordre vous-même ; cet outil applique une règle commune et filtre les setups sous 2× gain/risque.
+  </footer>
+</body>
+</html>
