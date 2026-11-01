@@ -75,7 +75,7 @@
 
       {% if wl %}
       <div class="micro-plan">
-        <h3 class="micro-title">Phase {{ "%.0f"|format(wl.risk_budget_usd) }} USD — 4×{{ "%.3f"|format(wl.slice_lots) }} lot</h3>
+        <h3 class="micro-title">Phase {{ "%.0f"|format(wl.risk_budget_usd) }} USD — Deriv MT5 {% if wl.mode == 'ladder_4x' %}4×{{ "%.2f"|format(wl.slice_lots) }}{% else %}1×{{ "%.2f"|format(wl.slice_lots) }}{% endif %} lot</h3>
         <p class="micro-order">{{ wl.order_summary_fr }}</p>
         <p class="muted small">{{ wl.broker_note_fr }}</p>
         {% if wl.risk_budget_note_fr %}<p class="muted small">{{ wl.risk_budget_note_fr }}</p>{% endif %}
@@ -89,7 +89,7 @@
             <tr>
               <td>TP{{ sl.index }}</td>
               <td>{{ "%.2f"|format(sl.price) }}</td>
-              <td>{{ "%.3f"|format(sl.lots) }}</td>
+              <td>{{ "%.2f"|format(sl.lots) }}</td>
               <td>{{ "%.2f"|format(sl.usd_locked) }}</td>
               <td>{{ sl.action_fr }}</td>
             </tr>
@@ -146,7 +146,7 @@
       </tbody>
     </table>
     <p class="week-hint muted">
-      Pas de promesse de gain. Granularité 0,001 lot requise ; si le courtier impose 0,01 minimum, cette échelle 4 TP ne peut pas être placée.
+      Deriv MT5 : min &amp; pas 0,01 lot — sous ~48 USD de risque (or), une seule ligne 0,01 et un TP (~1R).
       Voir <code>docs/plan-semaine.md</code>.
     </p>
   </section>
