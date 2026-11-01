@@ -254,6 +254,45 @@ h1 {
   font-size: 0.7rem;
 }
 
+.week-plan {
+  max-width: 1100px;
+  margin: 0 auto 1rem;
+  padding: 0 2rem 1.5rem;
+}
+
+.week-plan h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.2rem;
+}
+
+.week-intro,
+.contract-note,
+.week-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+}
+
+.size-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.size-table th,
+.size-table td {
+  border: 1px solid var(--border);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+}
+
+.size-table th {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .disclaimer {
   text-align: center;
   padding: 1.5rem 2rem 2.5rem;

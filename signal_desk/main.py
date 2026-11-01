@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from signal_desk.analysis import SignalResult, analyze
 from signal_desk.data import INSTRUMENTS, fetch_h4
+from signal_desk.sizing import CONTRACT_NOTE_FR, SymbolSizing, build_sizing
 
 BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="Bureau de signaux", docs_url=None, redoc_url=None)
@@ -45,12 +46,16 @@ def _load_signals() -> tuple[list[SignalResult], str | None]:
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
     signals, fetch_error = _load_signals()
+    week_sizing: list[SymbolSizing] = [build_sizing(s) for s in signals]
     updated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     return templates.TemplateResponse(
         request,
         "index.html",
         {
             "signals": signals,
+            "week_sizing": week_sizing,
+            "contract_note": CONTRACT_NOTE_FR,
+            "week_risk_usd": 100.0,
             "horizon": HORIZON_LABEL,
             "updated": updated,
             "fetch_error": fetch_error,

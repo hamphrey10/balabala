@@ -76,6 +76,40 @@
     {% endfor %}
   </main>
 
+  <section class="week-plan">
+    <h2>Plan de la semaine</h2>
+    <p class="week-intro">
+      Dimensionnement pour <strong>{{ "%.0f"|format(week_risk_usd) }} USD</strong> de risque au stop par trade
+      (convention ci-dessous). Objectif utilisateur +1&nbsp;000&nbsp;USD/semaine = arithmétique seulement, sans promesse.
+    </p>
+    <p class="contract-note">{{ contract_note }}</p>
+    <table class="size-table">
+      <thead>
+        <tr>
+          <th>Symbole</th>
+          <th>Lots (R={{ "%.0f"|format(week_risk_usd) }} USD)</th>
+          <th>Risque réel au stop</th>
+          <th>Gain ~ TP1</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sz in week_sizing %}
+        {% set row = sz.rows[1] %}
+        <tr>
+          <td>{{ sz.symbol }}</td>
+          <td>{{ "%.2f"|format(row.lots) }}</td>
+          <td>{{ "%.2f"|format(row.risk_if_stop_usd) }} USD</td>
+          <td>{{ "%.2f"|format(row.reward_tp1_usd) }} USD</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="week-hint muted">
+      Ex. ~3 TP1 or ou ~2 TP1 argent à ce sizing pour approcher +1&nbsp;000&nbsp;USD — si les deux premiers stops : ~−200&nbsp;USD.
+      Voir <code>docs/plan-semaine.md</code> dans le Contexte projet.
+    </p>
+  </section>
+
   <footer class="disclaimer">
     Aucun signal n'est une certitude. Vous passez chaque ordre vous-même ; les prix affichés sont le plan H4 du moment, même en attente de retest.
   </footer>
