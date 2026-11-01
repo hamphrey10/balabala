@@ -137,8 +137,8 @@
         {% set w = sz.week_ladder %}
         <tr>
           <td>{{ w.symbol }}</td>
-          <td>{{ "%.3f"|format(w.total_lots) }}</td>
-          <td>{{ "%.3f"|format(w.slice_lots) }}</td>
+          <td>{{ "%.2f"|format(w.total_lots) }}</td>
+          <td>{{ "%.2f"|format(w.slice_lots) }}</td>
           <td>{{ "%.2f"|format(w.total_risk_at_stop_usd) }} USD</td>
           <td>{{ "%.2f"|format(w.ladder_total_usd) }} USD</td>
         </tr>
