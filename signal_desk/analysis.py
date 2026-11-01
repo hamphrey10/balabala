@@ -144,12 +144,15 @@ def _four_tps_long(
     tp1 = entry_mid + risk
     highs = _levels_above(entry_mid, swings, "high")
     tp4 = max(highs) if highs else entry_mid + 4.0 * atr
-    if tp4 < tp1 + risk * 0.25:
-        tp4 = entry_mid + max(MIN_RR * risk, 3.0 * risk)
-    span = tp4 - tp1
-    tp2 = tp1 + span / 3.0
-    tp3 = tp1 + 2.0 * span / 3.0
-    rr = (tp4 - entry_mid) / risk
+    if tp4 <= entry_mid:
+        tp4 = entry_mid + 4.0 * atr
+    span = max(tp4 - tp1, 0.0)
+    if span <= 0:
+        tp2 = tp3 = tp4
+    else:
+        tp2 = tp1 + span / 3.0
+        tp3 = tp1 + 2.0 * span / 3.0
+    rr = (tp4 - entry_mid) / risk if risk > 0 else 0.0
     return tp1, tp2, tp3, tp4, rr
 
 
@@ -162,12 +165,15 @@ def _four_tps_short(
     tp1 = entry_mid - risk
     lows = _levels_below(entry_mid, swings, "low")
     tp4 = min(lows) if lows else entry_mid - 4.0 * atr
-    if tp4 > tp1 - risk * 0.25:
-        tp4 = entry_mid - max(MIN_RR * risk, 3.0 * risk)
-    span = tp1 - tp4
-    tp2 = tp1 - span / 3.0
-    tp3 = tp1 - 2.0 * span / 3.0
-    rr = (entry_mid - tp4) / risk
+    if tp4 >= entry_mid:
+        tp4 = entry_mid - 4.0 * atr
+    span = max(tp1 - tp4, 0.0)
+    if span <= 0:
+        tp2 = tp3 = tp4
+    else:
+        tp2 = tp1 - span / 3.0
+        tp3 = tp1 - 2.0 * span / 3.0
+    rr = (entry_mid - tp4) / risk if risk > 0 else 0.0
     return tp1, tp2, tp3, tp4, rr
 
 
@@ -258,38 +264,84 @@ def _resolve_side_and_entry(
     return Side.SELL, last_price * 1.002, note
 
 
-def _derive_order(side: Side, last_price: float, z_low: float, z_high: float, entry_mid: float) -> tuple[str, str, float]:
+def _zone_fully_below(last_price: float, z_low: float, z_high: float) -> bool:
     tick = max(last_price * 0.00005, 0.01)
+    return z_high < last_price - tick
+
+
+def _zone_fully_above(last_price: float, z_low: float, z_high: float) -> bool:
+    tick = max(last_price * 0.00005, 0.01)
+    return z_low > last_price + tick
+
+
+def _derive_order(side: Side, last_price: float, z_low: float, z_high: float, entry_mid: float) -> tuple[str, str, float]:
     if side == Side.BUY:
-        if z_high < last_price - tick:
+        if _zone_fully_below(last_price, z_low, z_high):
             return (
                 "Buy limit",
                 f"Poser maintenant un buy limit à {entry_mid:.2f} (zone sous le cours {last_price:.2f}) ; "
-                "exécution si le prix redescend en retest.",
+                "exécution si le prix redescend. Pas d'ordre au marché tant que le cours est hors zone.",
                 entry_mid,
             )
-        if z_low > last_price + tick:
+        if _zone_fully_above(last_price, z_low, z_high):
             raise ValueError("Plan achat incohérent : zone au-dessus du cours.")
         return (
             "Buy limit",
-            f"Attendre : cours dans la zone — buy limit au bas ({z_low:.2f}) ou validation manuelle avant entrée.",
-            z_low,
+            f"Cours dans la zone : entrée manuelle possible ; pas d'achat au marché sans validation du retest.",
+            entry_mid,
         )
 
-    if z_low > last_price + tick:
+    if _zone_fully_above(last_price, z_low, z_high):
         return (
             "Sell limit",
             f"Poser maintenant un sell limit à {entry_mid:.2f} (zone au-dessus du cours {last_price:.2f}) ; "
-            "exécution au retest si le prix remonte.",
+            "exécution si le prix remonte. Pas d'ordre au marché tant que le cours est hors zone.",
             entry_mid,
         )
-    if z_high < last_price - tick:
+    if _zone_fully_below(last_price, z_low, z_high):
         raise ValueError("Plan vente incohérent : zone sous le cours sans cassure validée.")
     return (
         "Sell limit",
-        f"Attendre : cours dans la zone — sell limit au haut ({z_high:.2f}) ou validation manuelle.",
-        z_high,
+        f"Cours dans la zone : entrée manuelle possible ; pas de vente au marché sans validation du retest.",
+        entry_mid,
     )
+
+
+def _build_precondition(
+    *,
+    signal_active: bool,
+    bias_ok: bool,
+    rr_ok: bool,
+    in_zone: bool,
+    rr: float,
+    z_low: float,
+    z_high: float,
+    order_type_fr: str,
+    order_trigger: float,
+    pending_outside_zone: bool,
+) -> str:
+    if signal_active:
+        return (
+            "Signal actif : retest en zone et R/R structurel ≥ 2× — exécution manuelle possible "
+            "(éviter le marché si le spread est défavorable)."
+        )
+    parts: list[str] = []
+    if pending_outside_zone:
+        parts.append(
+            f"{order_type_fr} posable maintenant à {order_trigger:.2f} : exécution uniquement si le prix "
+            f"revient dans {z_low:.2f}–{z_high:.2f} ; pas d'ordre au marché hors zone."
+        )
+    elif not in_zone:
+        parts.append(
+            f"Cours hors zone {z_low:.2f}–{z_high:.2f} : pas d'ordre au marché ; attendre le retest."
+        )
+    if not bias_ok:
+        parts.append("Signal retenu : biais H4 non confirmé (range ou structure mixte).")
+    if not rr_ok:
+        parts.append(
+            f"Signal retenu : l'objectif structurel TP4 ne paye que {rr}× le risque (minimum {MIN_RR:.0f}×)."
+        )
+    return " ".join(parts)
 
 
 def _price_in_zone(last_price: float, z_low: float, z_high: float) -> bool:
@@ -346,25 +398,22 @@ def analyze(
     in_zone = _price_in_zone(last_price, z_low, z_high)
     bias_ok = bias != Bias.RANGE
     rr_ok = rr >= MIN_RR
+    pending_outside = (side == Side.BUY and _zone_fully_below(last_price, z_low, z_high)) or (
+        side == Side.SELL and _zone_fully_above(last_price, z_low, z_high)
+    )
     signal_active = bias_ok and rr_ok and in_zone
-
-    if signal_active:
-        precondition_fr = "Conditions réunies : vous pouvez placer l'ordre manuellement si le prix reste dans la zone."
-    elif not bias_ok:
-        precondition_fr = (
-            "Attendre un biais H4 clair (série de plus hauts et plus bas) et un retest du niveau d'entrée "
-            f"({z_low:.2f}–{z_high:.2f}) avant d'entrer."
-        )
-    elif not in_zone:
-        precondition_fr = (
-            f"Attendre que le prix revienne dans la zone d'entrée ({z_low:.2f}–{z_high:.2f}) "
-            "avant de placer l'ordre ; ne pas chasser le marché."
-        )
-    else:
-        precondition_fr = (
-            f"Attendre un retest plus favorable ou un TP1 plus éloigné pour atteindre au moins {MIN_RR:.0f}× "
-            f"gain/risque (actuellement {rr}×)."
-        )
+    precondition_fr = _build_precondition(
+        signal_active=signal_active,
+        bias_ok=bias_ok,
+        rr_ok=rr_ok,
+        in_zone=in_zone,
+        rr=rr,
+        z_low=z_low,
+        z_high=z_high,
+        order_type_fr=order_type_fr,
+        order_trigger=order_trigger,
+        pending_outside_zone=pending_outside,
+    )
 
     return SignalResult(
         symbol=symbol,
