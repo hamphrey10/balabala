@@ -13,7 +13,7 @@ from signal_desk.deriv_specs import (
     DerivSymbolSpec,
 )
 
-WEEK_RISK_USD = 20.0
+WEEK_RISK_USD = 50.0
 LADDER_SLICES = 4
 
 
@@ -39,7 +39,9 @@ class TpSlice:
 class LadderSizing:
     symbol: str
     risk_budget_usd: float
-    mode: str  # "single" | "ladder_4x"
+    mode: str  # "single" | "ladder_4x" | "off"
+    payout_label_fr: str
+    payout_usd: float | None
     slice_lots: float
     total_lots: float
     total_risk_at_stop_usd: float
@@ -121,6 +123,29 @@ def build_week_ladder(signal: SignalResult, risk_usd: float = WEEK_RISK_USD) -> 
         signal.take_profit_4,
     )
 
+    if ladder_risk > risk_usd + 0.01 and signal.symbol == "XAGUSD":
+        note = (
+            f"XAGUSD hors phase {risk_usd:.0f} USD : 0,04 lot → ~{ladder_risk} USD au stop "
+            f"(> {risk_usd:.0f} USD). Pas d’ordre argent à ce budget."
+        )
+        return LadderSizing(
+            symbol=signal.symbol,
+            risk_budget_usd=risk_usd,
+            mode="off",
+            slice_lots=0.0,
+            total_lots=0.0,
+            total_risk_at_stop_usd=0.0,
+            risk_budget_note_fr=note,
+            order_summary_fr=note,
+            broker_note_fr=DERIV_MT5_NOTE_FR,
+            slices=(),
+            risk_after_tp1_note_fr="",
+            ladder_total_usd=0.0,
+            ladder_risk_threshold_usd=ladder_risk,
+            payout_label_fr="Hors budget",
+            payout_usd=None,
+        )
+
     if ladder_risk > risk_usd + 0.01:
         lots = spec.min_volume
         stop_risk = _risk_usd(spec, dist_stop, lots)
@@ -167,6 +192,8 @@ def build_week_ladder(signal: SignalResult, risk_usd: float = WEEK_RISK_USD) -> 
             risk_after_tp1_note_fr=after,
             ladder_total_usd=tp_usd,
             ladder_risk_threshold_usd=ladder_risk,
+            payout_label_fr="Gain TP unique ~",
+            payout_usd=tp_usd,
         )
 
     slice_lot = spec.volume_step
@@ -209,6 +236,8 @@ def build_week_ladder(signal: SignalResult, risk_usd: float = WEEK_RISK_USD) -> 
         risk_after_tp1_note_fr=after,
         ladder_total_usd=round(total_usd, 2),
         ladder_risk_threshold_usd=ladder_risk,
+        payout_label_fr="Cumul 4 TP ~",
+        payout_usd=round(total_usd, 2),
     )
 
 

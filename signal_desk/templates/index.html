@@ -73,7 +73,9 @@
 
       <p class="ladder-note">{{ s.ladder_note_fr }}</p>
 
-      {% if wl %}
+      {% if wl and wl.mode == 'off' %}
+      <p class="muted small">{{ wl.order_summary_fr }}</p>
+      {% elif wl %}
       <div class="micro-plan">
         <h3 class="micro-title">Phase {{ "%.0f"|format(wl.risk_budget_usd) }} USD — Deriv MT5 {% if wl.mode == 'ladder_4x' %}4×{{ "%.2f"|format(wl.slice_lots) }}{% else %}1×{{ "%.2f"|format(wl.slice_lots) }}{% endif %} lot</h3>
         <p class="micro-order">{{ wl.order_summary_fr }}</p>
@@ -129,7 +131,7 @@
           <th>Total lot</th>
           <th>Tranche</th>
           <th>Risque stop</th>
-          <th>Cumul 4 TP ~</th>
+          <th>Objectif (USD ~)</th>
         </tr>
       </thead>
       <tbody>
@@ -137,16 +139,16 @@
         {% set w = sz.week_ladder %}
         <tr>
           <td>{{ w.symbol }}</td>
-          <td>{{ "%.2f"|format(w.total_lots) }}</td>
-          <td>{{ "%.2f"|format(w.slice_lots) }}</td>
-          <td>{{ "%.2f"|format(w.total_risk_at_stop_usd) }} USD</td>
-          <td>{{ "%.2f"|format(w.ladder_total_usd) }} USD</td>
+          <td>{% if w.mode == 'off' %}—{% else %}{{ "%.2f"|format(w.total_lots) }}{% endif %}</td>
+          <td>{% if w.mode == 'off' %}—{% else %}{{ "%.2f"|format(w.slice_lots) }}{% endif %}</td>
+          <td>{% if w.mode == 'off' %}—{% else %}{{ "%.2f"|format(w.total_risk_at_stop_usd) }} USD{% endif %}</td>
+          <td>{% if w.payout_usd is none %}<span class="muted">{{ w.payout_label_fr }}</span>{% else %}{{ w.payout_label_fr }} {{ "%.2f"|format(w.payout_usd) }} USD{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     <p class="week-hint muted">
-      Deriv MT5 : min &amp; pas 0,01 lot — sous ~48 USD de risque (or), une seule ligne 0,01 et un TP (~1R).
+      Deriv MT5 : phase {{ "%.0f"|format(week_risk_usd) }} USD — or 0,04 lot (4×0,01 TP) si risque ≤ budget ; argent si 0,04 lot ≤ {{ "%.0f"|format(week_risk_usd) }} USD au stop.
       Voir <code>docs/plan-semaine.md</code>.
     </p>
   </section>
