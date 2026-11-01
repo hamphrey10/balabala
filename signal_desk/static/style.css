@@ -119,6 +119,38 @@ h1 {
   border-radius: 6px;
 }
 
+.micro-plan {
+  padding: 0.75rem;
+  border: 1px solid rgba(201, 162, 39, 0.35);
+  border-radius: 8px;
+  background: rgba(201, 162, 39, 0.06);
+}
+
+.micro-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.micro-order {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.micro-levels {
+  margin-bottom: 0.5rem;
+}
+
+.ladder-details {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.ladder-details summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
 .ladder-note {
   margin: 0;
   font-size: 0.82rem;
