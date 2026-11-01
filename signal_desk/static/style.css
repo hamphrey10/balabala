@@ -119,6 +119,43 @@ h1 {
   border-radius: 6px;
 }
 
+.ladder-note {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.slice-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.25rem;
+}
+
+.slice-table caption {
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--muted);
+  padding-bottom: 0.35rem;
+}
+
+.slice-table th,
+.slice-table td {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.45rem;
+}
+
+.slice-table th {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.75rem;
+}
+
 .plan-sentence {
   margin: 0;
   font-size: 0.85rem;

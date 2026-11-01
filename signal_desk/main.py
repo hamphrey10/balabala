@@ -47,6 +47,7 @@ def _load_signals() -> tuple[list[SignalResult], str | None]:
 async def index(request: Request) -> HTMLResponse:
     signals, fetch_error = _load_signals()
     week_sizing: list[SymbolSizing] = [build_sizing(s) for s in signals]
+    ladder_by_symbol = {sz.symbol: sz.ladder_100 for sz in week_sizing if sz.ladder_100}
     updated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     return templates.TemplateResponse(
         request,
@@ -54,6 +55,7 @@ async def index(request: Request) -> HTMLResponse:
         {
             "signals": signals,
             "week_sizing": week_sizing,
+            "ladder_by_symbol": ladder_by_symbol,
             "contract_note": CONTRACT_NOTE_FR,
             "week_risk_usd": 100.0,
             "horizon": HORIZON_LABEL,
@@ -84,6 +86,9 @@ async def api_signals() -> dict:
                 "stop_loss": s.stop_loss,
                 "take_profit_1": s.take_profit_1,
                 "take_profit_2": s.take_profit_2,
+                "take_profit_3": s.take_profit_3,
+                "take_profit_4": s.take_profit_4,
+                "ladder_note_fr": s.ladder_note_fr,
                 "reward_risk": s.reward_risk,
                 "dist_entry_stop": s.dist_entry_stop,
                 "dist_entry_tp1": s.dist_entry_tp1,

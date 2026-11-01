@@ -46,9 +46,12 @@ class SignalResult:
     stop_loss: float
     take_profit_1: float
     take_profit_2: float
+    take_profit_3: float
+    take_profit_4: float
     reward_risk: float
     dist_entry_stop: float
     dist_entry_tp1: float
+    ladder_note_fr: str
     commentary: str
     order_type_fr: str
     order_instruction_fr: str
@@ -132,28 +135,53 @@ def _pick_side(bias: Bias, last_price: float, range_low: float, range_high: floa
     return Side.BUY if last_price <= mid else Side.SELL
 
 
+def _four_tps_long(
+    entry_mid: float, stop: float, swings: list[SwingPoint], atr: float
+) -> tuple[float, float, float, float, float]:
+    risk = entry_mid - stop
+    if risk <= 0:
+        risk = entry_mid * BUFFER_PCT
+    tp1 = entry_mid + risk
+    highs = _levels_above(entry_mid, swings, "high")
+    tp4 = max(highs) if highs else entry_mid + 4.0 * atr
+    if tp4 < tp1 + risk * 0.25:
+        tp4 = entry_mid + max(MIN_RR * risk, 3.0 * risk)
+    span = tp4 - tp1
+    tp2 = tp1 + span / 3.0
+    tp3 = tp1 + 2.0 * span / 3.0
+    rr = (tp4 - entry_mid) / risk
+    return tp1, tp2, tp3, tp4, rr
+
+
+def _four_tps_short(
+    entry_mid: float, stop: float, swings: list[SwingPoint], atr: float
+) -> tuple[float, float, float, float, float]:
+    risk = stop - entry_mid
+    if risk <= 0:
+        risk = entry_mid * BUFFER_PCT
+    tp1 = entry_mid - risk
+    lows = _levels_below(entry_mid, swings, "low")
+    tp4 = min(lows) if lows else entry_mid - 4.0 * atr
+    if tp4 > tp1 - risk * 0.25:
+        tp4 = entry_mid - max(MIN_RR * risk, 3.0 * risk)
+    span = tp1 - tp4
+    tp2 = tp1 - span / 3.0
+    tp3 = tp1 - 2.0 * span / 3.0
+    rr = (entry_mid - tp4) / risk
+    return tp1, tp2, tp3, tp4, rr
+
+
 def _plan_long(
     entry_mid: float,
     swings: list[SwingPoint],
     atr: float,
-    last_price: float,
     zone_half: float,
-) -> tuple[float, float, float, float, float, float]:
+) -> tuple[float, float, float, float, float, float, float, float, float]:
     stop = entry_mid - max(atr * 0.35, entry_mid * BUFFER_PCT)
-    risk = entry_mid - stop
-    targets = _levels_above(entry_mid, swings, "high")
-    if not targets:
-        targets = [entry_mid + 2.5 * atr, entry_mid + 4.0 * atr]
-    tp1 = targets[0]
-    tp2 = targets[1] if len(targets) > 1 else tp1 + 1.5 * atr
-    if risk > 0 and (tp1 - entry_mid) / risk < MIN_RR:
-        tp1 = entry_mid + MIN_RR * risk
-        tp2 = max(tp2, tp1 + 1.5 * atr)
-    reward = tp1 - entry_mid
-    rr = reward / risk if risk > 0 else 0.0
+    tp1, tp2, tp3, tp4, rr = _four_tps_long(entry_mid, stop, swings, atr)
     z_low = entry_mid - zone_half
     z_high = entry_mid + zone_half
-    return z_low, z_high, stop, tp1, tp2, rr
+    return z_low, z_high, stop, tp1, tp2, tp3, tp4, rr
 
 
 def _plan_short(
@@ -161,22 +189,18 @@ def _plan_short(
     swings: list[SwingPoint],
     atr: float,
     zone_half: float,
-) -> tuple[float, float, float, float, float, float]:
+) -> tuple[float, float, float, float, float, float, float, float, float]:
     stop = entry_mid + max(atr * 0.35, entry_mid * BUFFER_PCT)
-    risk = stop - entry_mid
-    targets = _levels_below(entry_mid, swings, "low")
-    if not targets:
-        targets = [entry_mid - 2.5 * atr, entry_mid - 4.0 * atr]
-    tp1 = targets[0]
-    tp2 = targets[1] if len(targets) > 1 else tp1 - 1.5 * atr
-    if risk > 0 and (entry_mid - tp1) / risk < MIN_RR:
-        tp1 = entry_mid - MIN_RR * risk
-        tp2 = min(tp2, tp1 - 1.5 * atr)
-    reward = entry_mid - tp1
-    rr = reward / risk if risk > 0 else 0.0
+    tp1, tp2, tp3, tp4, rr = _four_tps_short(entry_mid, stop, swings, atr)
     z_low = entry_mid - zone_half
     z_high = entry_mid + zone_half
-    return z_low, z_high, stop, tp1, tp2, rr
+    return z_low, z_high, stop, tp1, tp2, tp3, tp4, rr
+
+
+LADDER_NOTE_FR = (
+    "Sortie en 4 tranches de 25 % : à TP1 (~1R), clôturer 25 % et placer le stop du reliquat au prix d'entrée "
+    "(hors spread) ; TP2–TP4, 25 % chacun. Tant que TP1 n'est pas touché, le risque complet au stop initial reste entier."
+)
 
 
 def _recent_low_below(df: pd.DataFrame, last_price: float, lookback: int = 30) -> float | None:
@@ -290,22 +314,26 @@ def analyze(
     )
 
     if side == Side.BUY:
-        z_low, z_high, stop, tp1, tp2, rr = _plan_long(entry_mid, swings, atr, last_price, zone_half)
+        z_low, z_high, stop, tp1, tp2, tp3, tp4, rr = _plan_long(
+            entry_mid, swings, atr, zone_half
+        )
         dist_stop = entry_mid - stop
         dist_tp1 = tp1 - entry_mid
         commentary = (
-            f"Plan achat : se placer à {entry_mid:.2f}, stop à {stop:.2f}, "
-            f"objectifs à {tp1:.2f} et {tp2:.2f}."
+            f"Plan achat : entrée {entry_mid:.2f}, stop {stop:.2f}, "
+            f"échelle TP {tp1:.2f} / {tp2:.2f} / {tp3:.2f} / {tp4:.2f}."
         )
         if flip_note:
             commentary = f"{flip_note} {commentary}"
     else:
-        z_low, z_high, stop, tp1, tp2, rr = _plan_short(entry_mid, swings, atr, zone_half)
+        z_low, z_high, stop, tp1, tp2, tp3, tp4, rr = _plan_short(
+            entry_mid, swings, atr, zone_half
+        )
         dist_stop = stop - entry_mid
         dist_tp1 = entry_mid - tp1
         commentary = (
-            f"Plan vente : se placer à {entry_mid:.2f}, stop à {stop:.2f}, "
-            f"objectifs à {tp1:.2f} et {tp2:.2f}."
+            f"Plan vente : entrée {entry_mid:.2f}, stop {stop:.2f}, "
+            f"échelle TP {tp1:.2f} / {tp2:.2f} / {tp3:.2f} / {tp4:.2f}."
         )
         if flip_note:
             commentary = f"{flip_note} {commentary}"
@@ -353,9 +381,12 @@ def analyze(
         stop_loss=stop,
         take_profit_1=tp1,
         take_profit_2=tp2,
+        take_profit_3=tp3,
+        take_profit_4=tp4,
         reward_risk=rr,
         dist_entry_stop=abs(dist_stop),
         dist_entry_tp1=abs(dist_tp1),
+        ladder_note_fr=LADDER_NOTE_FR,
         commentary=commentary,
         order_type_fr=order_type_fr,
         order_instruction_fr=order_instruction_fr,

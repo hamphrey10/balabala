@@ -24,6 +24,7 @@
 
   <main class="grid">
     {% for s in signals %}
+    {% set ladder = ladder_by_symbol.get(s.symbol) %}
     <article class="card {% if s.signal_active %}active{% else %}plan{% endif %}">
       <header class="card-head">
         <h2>{{ s.symbol }}</h2>
@@ -38,8 +39,8 @@
       <p class="side-line">
         <strong>{{ s.side.value | capitalize }}</strong>
         — {{ s.order_type_fr }} — risque {{ "%.2f"|format(s.dist_entry_stop) }} pts jusqu'au stop,
-        gain {{ "%.2f"|format(s.dist_entry_tp1) }} pts vers TP1
-        (R/R {{ s.reward_risk }}×)
+        gain {{ "%.2f"|format(s.dist_entry_tp1) }} pts vers TP1 (~1R)
+        (R/R max TP4 {{ s.reward_risk }}×)
       </p>
       <p class="order-line">{{ s.order_instruction_fr }}</p>
 
@@ -53,19 +54,50 @@
           <dd>{{ "%.2f"|format(s.stop_loss) }}</dd>
         </div>
         <div>
-          <dt>Take profit 1</dt>
+          <dt>TP1 (~1R, 25 %)</dt>
           <dd>{{ "%.2f"|format(s.take_profit_1) }}</dd>
         </div>
         <div>
-          <dt>Take profit 2</dt>
+          <dt>TP2 (25 %)</dt>
           <dd>{{ "%.2f"|format(s.take_profit_2) }}</dd>
         </div>
+        <div>
+          <dt>TP3 (25 %)</dt>
+          <dd>{{ "%.2f"|format(s.take_profit_3) }}</dd>
+        </div>
+        <div>
+          <dt>TP4 (25 %)</dt>
+          <dd>{{ "%.2f"|format(s.take_profit_4) }}</dd>
+        </div>
       </dl>
+
+      <p class="ladder-note">{{ s.ladder_note_fr }}</p>
+
+      {% if ladder %}
+      <table class="slice-table">
+        <caption>Tranches @ {{ "%.0f"|format(ladder.risk_budget_usd) }} USD de risque (total {{ "%.2f"|format(ladder.total_lots) }} lot)</caption>
+        <thead>
+          <tr><th>TP</th><th>Prix</th><th>Lots</th><th>USD ~</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          {% for sl in ladder.slices %}
+          <tr>
+            <td>TP{{ sl.index }}</td>
+            <td>{{ "%.2f"|format(sl.price) }}</td>
+            <td>{{ "%.2f"|format(sl.lots) }}</td>
+            <td>{{ "%.2f"|format(sl.usd_locked) }}</td>
+            <td>{{ sl.action_fr }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="muted small">{{ ladder.risk_after_tp1_note_fr }}</p>
+      {% endif %}
 
       <p class="plan-sentence">{{ s.commentary }}</p>
 
       {% if s.signal_active %}
-      <p class="status ok">Signal actif — seuil 2× gain/risque respecté.</p>
+      <p class="status ok">Signal actif — seuil 2× gain/risque respecté vers TP4.</p>
       {% else %}
       <p class="status wait">{{ s.precondition_fr }}</p>
       {% endif %}
@@ -90,29 +122,29 @@
           <th>Symbole</th>
           <th>Lots (R={{ "%.0f"|format(week_risk_usd) }} USD)</th>
           <th>Risque réel au stop</th>
-          <th>Gain ~ TP1</th>
+          <th>Gain ~ TP1 (1 tranche)</th>
         </tr>
       </thead>
       <tbody>
         {% for sz in week_sizing %}
         {% set row = sz.rows[1] %}
+        {% set lad = sz.ladder_100 %}
         <tr>
           <td>{{ sz.symbol }}</td>
           <td>{{ "%.2f"|format(row.lots) }}</td>
           <td>{{ "%.2f"|format(row.risk_if_stop_usd) }} USD</td>
-          <td>{{ "%.2f"|format(row.reward_tp1_usd) }} USD</td>
+          <td>{% if lad %}{{ "%.2f"|format(lad.slices[0].usd_locked) }} USD (25 %){% else %}—{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     <p class="week-hint muted">
-      Ex. ~2 TP1 (or ou argent) à ce sizing pour approcher +1&nbsp;000&nbsp;USD — si les deux premiers stops : ~−200&nbsp;USD.
-      Voir <code>docs/plan-semaine.md</code> dans le Contexte projet.
+      Sortie échelonnée 4×25 % — voir cartes ci-dessus et <code>docs/plan-semaine.md</code>.
     </p>
   </section>
 
   <footer class="disclaimer">
-    Aucun signal n'est une certitude. Vous passez chaque ordre vous-même ; les prix affichés sont le plan H4 du moment, même en attente de retest.
+    Aucun signal n'est une certitude. Tant que TP1 n'est pas touché, la perte au stop initial reste possible sur la totalité de la position.
   </footer>
 </body>
 </html>
