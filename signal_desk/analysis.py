@@ -50,6 +50,9 @@ class SignalResult:
     dist_entry_stop: float
     dist_entry_tp1: float
     commentary: str
+    order_type_fr: str
+    order_instruction_fr: str
+    order_trigger_price: float
 
 
 def _find_swings(df: pd.DataFrame, window: int = SWING_WINDOW) -> list[SwingPoint]:
@@ -176,18 +179,93 @@ def _plan_short(
     return z_low, z_high, stop, tp1, tp2, rr
 
 
-def _entry_level(
+def _recent_low_below(df: pd.DataFrame, last_price: float, lookback: int = 30) -> float | None:
+    tail = df.tail(lookback)
+    below = tail[tail["low"] < last_price * 0.999]["low"]
+    if below.empty:
+        return None
+    return float(below.min())
+
+
+def _recent_high_above(df: pd.DataFrame, last_price: float, lookback: int = 30) -> float | None:
+    tail = df.tail(lookback)
+    above = tail[tail["high"] > last_price * 1.001]["high"]
+    if above.empty:
+        return None
+    return float(above.max())
+
+
+def _resolve_side_and_entry(
     side: Side,
     last_price: float,
     swings: list[SwingPoint],
     range_low: float,
     range_high: float,
-) -> float:
+    df: pd.DataFrame,
+) -> tuple[Side, float, str]:
+    """Pick entry on the correct side of price for retest logic (no buy limit above market)."""
+    note = ""
     if side == Side.BUY:
         supports = _levels_below(last_price, swings, "low")
-        return supports[0] if supports else range_low
+        if supports:
+            return Side.BUY, supports[0], note
+        if range_low > last_price * 1.001:
+            note = (
+                "Ancien support au-dessus du cours : bascule en retest vente (support devenu résistance)."
+            )
+            return Side.SELL, range_low, note
+        alt = _recent_low_below(df, last_price)
+        if alt is not None:
+            return Side.BUY, alt, note
+        if range_high > last_price:
+            note = "Retest résistance après cassure : vente sur remontée."
+            return Side.SELL, range_high, note
+        return Side.BUY, last_price * 0.998, note
+
     resistances = _levels_above(last_price, swings, "high")
-    return resistances[0] if resistances else range_high
+    if resistances:
+        return Side.SELL, resistances[0], note
+    if range_high < last_price * 0.999:
+        note = "Ancienne résistance sous le cours : bascule en retest achat (résistance devenue support)."
+        return Side.BUY, range_high, note
+    alt = _recent_high_above(df, last_price)
+    if alt is not None:
+        return Side.SELL, alt, note
+    return Side.SELL, last_price * 1.002, note
+
+
+def _derive_order(side: Side, last_price: float, z_low: float, z_high: float, entry_mid: float) -> tuple[str, str, float]:
+    tick = max(last_price * 0.00005, 0.01)
+    if side == Side.BUY:
+        if z_high < last_price - tick:
+            return (
+                "Buy limit",
+                f"Poser maintenant un buy limit à {entry_mid:.2f} (zone sous le cours {last_price:.2f}) ; "
+                "exécution si le prix redescend en retest.",
+                entry_mid,
+            )
+        if z_low > last_price + tick:
+            raise ValueError("Plan achat incohérent : zone au-dessus du cours.")
+        return (
+            "Buy limit",
+            f"Attendre : cours dans la zone — buy limit au bas ({z_low:.2f}) ou validation manuelle avant entrée.",
+            z_low,
+        )
+
+    if z_low > last_price + tick:
+        return (
+            "Sell limit",
+            f"Poser maintenant un sell limit à {entry_mid:.2f} (zone au-dessus du cours {last_price:.2f}) ; "
+            "exécution au retest si le prix remonte.",
+            entry_mid,
+        )
+    if z_high < last_price - tick:
+        raise ValueError("Plan vente incohérent : zone sous le cours sans cassure validée.")
+    return (
+        "Sell limit",
+        f"Attendre : cours dans la zone — sell limit au haut ({z_high:.2f}) ou validation manuelle.",
+        z_high,
+    )
 
 
 def _price_in_zone(last_price: float, z_low: float, z_high: float) -> bool:
@@ -205,9 +283,11 @@ def analyze(
     bias = _detect_bias(swings)
     atr = _atr(df)
     range_low, range_high = _range_bounds(swings)
-    side = _pick_side(bias, last_price, range_low, range_high)
+    side_hint = _pick_side(bias, last_price, range_low, range_high)
     zone_half = max(atr * 0.15, last_price * 0.0008)
-    entry_mid = _entry_level(side, last_price, swings, range_low, range_high)
+    side, entry_mid, flip_note = _resolve_side_and_entry(
+        side_hint, last_price, swings, range_low, range_high, df
+    )
 
     if side == Side.BUY:
         z_low, z_high, stop, tp1, tp2, rr = _plan_long(entry_mid, swings, atr, last_price, zone_half)
@@ -217,6 +297,8 @@ def analyze(
             f"Plan achat : se placer à {entry_mid:.2f}, stop à {stop:.2f}, "
             f"objectifs à {tp1:.2f} et {tp2:.2f}."
         )
+        if flip_note:
+            commentary = f"{flip_note} {commentary}"
     else:
         z_low, z_high, stop, tp1, tp2, rr = _plan_short(entry_mid, swings, atr, zone_half)
         dist_stop = stop - entry_mid
@@ -225,6 +307,12 @@ def analyze(
             f"Plan vente : se placer à {entry_mid:.2f}, stop à {stop:.2f}, "
             f"objectifs à {tp1:.2f} et {tp2:.2f}."
         )
+        if flip_note:
+            commentary = f"{flip_note} {commentary}"
+
+    order_type_fr, order_instruction_fr, order_trigger = _derive_order(
+        side, last_price, z_low, z_high, entry_mid
+    )
 
     rr = round(rr, 2)
     in_zone = _price_in_zone(last_price, z_low, z_high)
@@ -269,4 +357,7 @@ def analyze(
         dist_entry_stop=abs(dist_stop),
         dist_entry_tp1=abs(dist_tp1),
         commentary=commentary,
+        order_type_fr=order_type_fr,
+        order_instruction_fr=order_instruction_fr,
+        order_trigger_price=order_trigger,
     )

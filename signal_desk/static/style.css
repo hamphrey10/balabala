@@ -104,6 +104,13 @@ h1 {
   border-color: rgba(212, 160, 23, 0.35);
 }
 
+.order-line {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--accent);
+  line-height: 1.4;
+}
+
 .side-line {
   margin: 0;
   font-size: 0.9rem;

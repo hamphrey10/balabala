@@ -37,10 +37,11 @@
 
       <p class="side-line">
         <strong>{{ s.side.value | capitalize }}</strong>
-        — risque {{ "%.2f"|format(s.dist_entry_stop) }} pts jusqu'au stop,
+        — {{ s.order_type_fr }} — risque {{ "%.2f"|format(s.dist_entry_stop) }} pts jusqu'au stop,
         gain {{ "%.2f"|format(s.dist_entry_tp1) }} pts vers TP1
         (R/R {{ s.reward_risk }}×)
       </p>
+      <p class="order-line">{{ s.order_instruction_fr }}</p>
 
       <dl class="levels">
         <div>
@@ -105,7 +106,7 @@
       </tbody>
     </table>
     <p class="week-hint muted">
-      Ex. ~3 TP1 or ou ~2 TP1 argent à ce sizing pour approcher +1&nbsp;000&nbsp;USD — si les deux premiers stops : ~−200&nbsp;USD.
+      Ex. ~2 TP1 (or ou argent) à ce sizing pour approcher +1&nbsp;000&nbsp;USD — si les deux premiers stops : ~−200&nbsp;USD.
       Voir <code>docs/plan-semaine.md</code> dans le Contexte projet.
     </p>
   </section>

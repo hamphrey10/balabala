@@ -88,6 +88,9 @@ async def api_signals() -> dict:
                 "dist_entry_stop": s.dist_entry_stop,
                 "dist_entry_tp1": s.dist_entry_tp1,
                 "commentary": s.commentary,
+                "order_type_fr": s.order_type_fr,
+                "order_instruction_fr": s.order_instruction_fr,
+                "order_trigger_price": s.order_trigger_price,
             }
             for s in signals
         ],
