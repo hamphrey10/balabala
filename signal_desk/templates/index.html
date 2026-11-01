@@ -24,7 +24,7 @@
 
   <main class="grid">
     {% for s in signals %}
-    <article class="card {% if s.signal_active %}active{% else %}withheld{% endif %}">
+    <article class="card {% if s.signal_active %}active{% else %}plan{% endif %}">
       <header class="card-head">
         <h2>{{ s.symbol }}</h2>
         <span class="bias bias-{{ s.bias.value }}">{{ s.bias.value | capitalize }}</span>
@@ -35,10 +35,16 @@
         <span class="price-note" title="{{ s.data_source }}">{{ s.price_note_fr }}</span>
       </div>
 
-      {% if s.signal_active %}
+      <p class="side-line">
+        <strong>{{ s.side.value | capitalize }}</strong>
+        — risque {{ "%.2f"|format(s.dist_entry_stop) }} pts jusqu'au stop,
+        gain {{ "%.2f"|format(s.dist_entry_tp1) }} pts vers TP1
+        (R/R {{ s.reward_risk }}×)
+      </p>
+
       <dl class="levels">
         <div>
-          <dt>Zone d'entrée</dt>
+          <dt>Entrée</dt>
           <dd>{{ "%.2f"|format(s.entry_zone_low) }} – {{ "%.2f"|format(s.entry_zone_high) }}</dd>
         </div>
         <div>
@@ -53,23 +59,14 @@
           <dt>Take profit 2</dt>
           <dd>{{ "%.2f"|format(s.take_profit_2) }}</dd>
         </div>
-        <div class="rr">
-          <dt>Rapport gain / risque</dt>
-          <dd>{{ s.reward_risk }}×</dd>
-        </div>
       </dl>
-      <p class="comment">{{ s.commentary }}</p>
+
+      <p class="plan-sentence">{{ s.commentary }}</p>
+
+      {% if s.signal_active %}
+      <p class="status ok">Signal actif — seuil 2× gain/risque respecté.</p>
       {% else %}
-      <div class="withhold">
-        <strong>Signal non publié</strong>
-        <p>{{ s.withhold_reason or "Setup incomplet." }}</p>
-        {% if s.reward_risk is not none %}
-        <p class="muted">R/R calculé vers TP1 : {{ s.reward_risk }}× (seuil : 2×)</p>
-        {% endif %}
-        {% if s.commentary %}
-        <p class="comment muted">{{ s.commentary }}</p>
-        {% endif %}
-      </div>
+      <p class="status wait">{{ s.precondition_fr }}</p>
       {% endif %}
 
       <footer class="card-foot">
@@ -80,7 +77,7 @@
   </main>
 
   <footer class="disclaimer">
-    Aucun signal n'est une certitude. Vous passez chaque ordre vous-même ; cet outil applique une règle commune et filtre les setups sous 2× gain/risque.
+    Aucun signal n'est une certitude. Vous passez chaque ordre vous-même ; les prix affichés sont le plan H4 du moment, même en attente de retest.
   </footer>
 </body>
 </html>

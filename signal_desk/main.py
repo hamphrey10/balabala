@@ -68,16 +68,20 @@ async def api_signals() -> dict:
             {
                 "symbol": s.symbol,
                 "bias": s.bias.value,
+                "side": s.side.value,
                 "last_price": s.last_price,
                 "price_note_fr": s.price_note_fr,
                 "data_source": s.data_source,
                 "signal_active": s.signal_active,
-                "withhold_reason": s.withhold_reason,
+                "precondition_fr": s.precondition_fr,
+                "entry_mid": s.entry_mid,
                 "entry_zone": [s.entry_zone_low, s.entry_zone_high],
                 "stop_loss": s.stop_loss,
                 "take_profit_1": s.take_profit_1,
                 "take_profit_2": s.take_profit_2,
                 "reward_risk": s.reward_risk,
+                "dist_entry_stop": s.dist_entry_stop,
+                "dist_entry_tp1": s.dist_entry_tp1,
                 "commentary": s.commentary,
             }
             for s in signals

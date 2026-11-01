@@ -100,8 +100,39 @@ h1 {
   border-color: rgba(61, 154, 106, 0.45);
 }
 
-.card.withheld {
+.card.plan {
   border-color: rgba(212, 160, 23, 0.35);
+}
+
+.side-line {
+  margin: 0;
+  font-size: 0.9rem;
+  padding: 0.5rem 0.65rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+}
+
+.plan-sentence {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.status {
+  margin: 0;
+  font-size: 0.88rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+}
+
+.status.ok {
+  background: rgba(61, 154, 106, 0.12);
+  border-left: 3px solid var(--bull);
+}
+
+.status.wait {
+  background: rgba(212, 160, 23, 0.08);
+  border-left: 3px solid var(--warn);
 }
 
 .card-head {

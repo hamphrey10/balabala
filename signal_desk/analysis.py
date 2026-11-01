@@ -1,4 +1,4 @@
-"""Structure-based swing setup on H4 candles."""
+"""Structure-based swing setup on H4 candles — always emits a numeric plan."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pandas as pd
 
 MIN_RR = 2.0
 SWING_WINDOW = 2
-BUFFER_PCT = 0.0015  # ~0.15 % beyond invalidation level
+BUFFER_PCT = 0.0015
 
 
 class Bias(str, Enum):
@@ -18,28 +18,37 @@ class Bias(str, Enum):
     RANGE = "range"
 
 
+class Side(str, Enum):
+    BUY = "achat"
+    SELL = "vente"
+
+
 @dataclass
 class SwingPoint:
     index: int
     price: float
-    kind: str  # "high" | "low"
+    kind: str
 
 
 @dataclass
 class SignalResult:
     symbol: str
     bias: Bias
+    side: Side
     last_price: float
     price_note_fr: str
     data_source: str
     signal_active: bool
-    withhold_reason: str | None
-    entry_zone_low: float | None
-    entry_zone_high: float | None
-    stop_loss: float | None
-    take_profit_1: float | None
-    take_profit_2: float | None
-    reward_risk: float | None
+    precondition_fr: str
+    entry_zone_low: float
+    entry_zone_high: float
+    entry_mid: float
+    stop_loss: float
+    take_profit_1: float
+    take_profit_2: float
+    reward_risk: float
+    dist_entry_stop: float
+    dist_entry_tp1: float
     commentary: str
 
 
@@ -56,15 +65,14 @@ def _find_swings(df: pd.DataFrame, window: int = SWING_WINDOW) -> list[SwingPoin
             highs.append(SwingPoint(i, h, "high"))
         if l <= seg_l.min():
             lows.append(SwingPoint(i, l, "low"))
-    merged = sorted(highs + lows, key=lambda p: p.index)
-    return merged
+    return sorted(highs + lows, key=lambda p: p.index)
 
 
 def _recent_pivots(swings: list[SwingPoint], kind: str, count: int = 3) -> list[float]:
     return [s.price for s in swings if s.kind == kind][-count:]
 
 
-def _detect_bias(df: pd.DataFrame, swings: list[SwingPoint]) -> Bias:
+def _detect_bias(swings: list[SwingPoint]) -> Bias:
     highs = _recent_pivots(swings, "high", 3)
     lows = _recent_pivots(swings, "low", 3)
     if len(highs) < 2 or len(lows) < 2:
@@ -104,97 +112,161 @@ def _levels_below(price: float, swings: list[SwingPoint], kind: str) -> list[flo
     return sorted({s.price for s in swings if s.kind == kind and s.price < price * 0.999}, reverse=True)
 
 
-def analyze(symbol: str, df: pd.DataFrame, last_price: float, price_note_fr: str, data_source: str) -> SignalResult:
-    swings = _find_swings(df)
-    bias = _detect_bias(df, swings)
-    atr = _atr(df)
+def _range_bounds(swings: list[SwingPoint]) -> tuple[float, float]:
+    highs = [s.price for s in swings if s.kind == "high"][-6:]
+    lows = [s.price for s in swings if s.kind == "low"][-6:]
+    if not highs or not lows:
+        raise ValueError("Pas assez de pivots pour définir un plan.")
+    return min(lows), max(highs)
 
-    base = SignalResult(
+
+def _pick_side(bias: Bias, last_price: float, range_low: float, range_high: float) -> Side:
+    if bias == Bias.BULLISH:
+        return Side.BUY
+    if bias == Bias.BEARISH:
+        return Side.SELL
+    mid = (range_low + range_high) / 2
+    return Side.BUY if last_price <= mid else Side.SELL
+
+
+def _plan_long(
+    entry_mid: float,
+    swings: list[SwingPoint],
+    atr: float,
+    last_price: float,
+    zone_half: float,
+) -> tuple[float, float, float, float, float, float]:
+    stop = entry_mid - max(atr * 0.35, entry_mid * BUFFER_PCT)
+    risk = entry_mid - stop
+    targets = _levels_above(entry_mid, swings, "high")
+    if not targets:
+        targets = [entry_mid + 2.5 * atr, entry_mid + 4.0 * atr]
+    tp1 = targets[0]
+    tp2 = targets[1] if len(targets) > 1 else tp1 + 1.5 * atr
+    if risk > 0 and (tp1 - entry_mid) / risk < MIN_RR:
+        tp1 = entry_mid + MIN_RR * risk
+        tp2 = max(tp2, tp1 + 1.5 * atr)
+    reward = tp1 - entry_mid
+    rr = reward / risk if risk > 0 else 0.0
+    z_low = entry_mid - zone_half
+    z_high = entry_mid + zone_half
+    return z_low, z_high, stop, tp1, tp2, rr
+
+
+def _plan_short(
+    entry_mid: float,
+    swings: list[SwingPoint],
+    atr: float,
+    zone_half: float,
+) -> tuple[float, float, float, float, float, float]:
+    stop = entry_mid + max(atr * 0.35, entry_mid * BUFFER_PCT)
+    risk = stop - entry_mid
+    targets = _levels_below(entry_mid, swings, "low")
+    if not targets:
+        targets = [entry_mid - 2.5 * atr, entry_mid - 4.0 * atr]
+    tp1 = targets[0]
+    tp2 = targets[1] if len(targets) > 1 else tp1 - 1.5 * atr
+    if risk > 0 and (entry_mid - tp1) / risk < MIN_RR:
+        tp1 = entry_mid - MIN_RR * risk
+        tp2 = min(tp2, tp1 - 1.5 * atr)
+    reward = entry_mid - tp1
+    rr = reward / risk if risk > 0 else 0.0
+    z_low = entry_mid - zone_half
+    z_high = entry_mid + zone_half
+    return z_low, z_high, stop, tp1, tp2, rr
+
+
+def _entry_level(
+    side: Side,
+    last_price: float,
+    swings: list[SwingPoint],
+    range_low: float,
+    range_high: float,
+) -> float:
+    if side == Side.BUY:
+        supports = _levels_below(last_price, swings, "low")
+        return supports[0] if supports else range_low
+    resistances = _levels_above(last_price, swings, "high")
+    return resistances[0] if resistances else range_high
+
+
+def _price_in_zone(last_price: float, z_low: float, z_high: float) -> bool:
+    return z_low <= last_price <= z_high
+
+
+def analyze(
+    symbol: str,
+    df: pd.DataFrame,
+    last_price: float,
+    price_note_fr: str,
+    data_source: str,
+) -> SignalResult:
+    swings = _find_swings(df)
+    bias = _detect_bias(swings)
+    atr = _atr(df)
+    range_low, range_high = _range_bounds(swings)
+    side = _pick_side(bias, last_price, range_low, range_high)
+    zone_half = max(atr * 0.15, last_price * 0.0008)
+    entry_mid = _entry_level(side, last_price, swings, range_low, range_high)
+
+    if side == Side.BUY:
+        z_low, z_high, stop, tp1, tp2, rr = _plan_long(entry_mid, swings, atr, last_price, zone_half)
+        dist_stop = entry_mid - stop
+        dist_tp1 = tp1 - entry_mid
+        commentary = (
+            f"Plan achat : se placer à {entry_mid:.2f}, stop à {stop:.2f}, "
+            f"objectifs à {tp1:.2f} et {tp2:.2f}."
+        )
+    else:
+        z_low, z_high, stop, tp1, tp2, rr = _plan_short(entry_mid, swings, atr, zone_half)
+        dist_stop = stop - entry_mid
+        dist_tp1 = entry_mid - tp1
+        commentary = (
+            f"Plan vente : se placer à {entry_mid:.2f}, stop à {stop:.2f}, "
+            f"objectifs à {tp1:.2f} et {tp2:.2f}."
+        )
+
+    rr = round(rr, 2)
+    in_zone = _price_in_zone(last_price, z_low, z_high)
+    bias_ok = bias != Bias.RANGE
+    rr_ok = rr >= MIN_RR
+    signal_active = bias_ok and rr_ok and in_zone
+
+    if signal_active:
+        precondition_fr = "Conditions réunies : vous pouvez placer l'ordre manuellement si le prix reste dans la zone."
+    elif not bias_ok:
+        precondition_fr = (
+            "Attendre un biais H4 clair (série de plus hauts et plus bas) et un retest du niveau d'entrée "
+            f"({z_low:.2f}–{z_high:.2f}) avant d'entrer."
+        )
+    elif not in_zone:
+        precondition_fr = (
+            f"Attendre que le prix revienne dans la zone d'entrée ({z_low:.2f}–{z_high:.2f}) "
+            "avant de placer l'ordre ; ne pas chasser le marché."
+        )
+    else:
+        precondition_fr = (
+            f"Attendre un retest plus favorable ou un TP1 plus éloigné pour atteindre au moins {MIN_RR:.0f}× "
+            f"gain/risque (actuellement {rr}×)."
+        )
+
+    return SignalResult(
         symbol=symbol,
         bias=bias,
+        side=side,
         last_price=last_price,
         price_note_fr=price_note_fr,
         data_source=data_source,
-        signal_active=False,
-        withhold_reason=None,
-        entry_zone_low=None,
-        entry_zone_high=None,
-        stop_loss=None,
-        take_profit_1=None,
-        take_profit_2=None,
-        reward_risk=None,
-        commentary="",
+        signal_active=signal_active,
+        precondition_fr=precondition_fr,
+        entry_zone_low=z_low,
+        entry_zone_high=z_high,
+        entry_mid=entry_mid,
+        stop_loss=stop,
+        take_profit_1=tp1,
+        take_profit_2=tp2,
+        reward_risk=rr,
+        dist_entry_stop=abs(dist_stop),
+        dist_entry_tp1=abs(dist_tp1),
+        commentary=commentary,
     )
-
-    if bias == Bias.RANGE:
-        base.withhold_reason = (
-            "Pas de signal : la structure H4 est en range, sans biais clair pour un retest."
-        )
-        base.commentary = "Attendre une série de plus hauts/bas cohérente avant de chercher une entrée."
-        return base
-
-    zone_half = max(atr * 0.15, last_price * 0.0008)
-
-    if bias == Bias.BULLISH:
-        supports = _levels_below(last_price, swings, "low")
-        if not supports:
-            base.withhold_reason = "Pas de signal : aucun support structurel identifiable sous le prix actuel."
-            return base
-        entry_mid = supports[0]
-        entry_zone_low = entry_mid - zone_half
-        entry_zone_high = entry_mid + zone_half
-        stop_loss = entry_mid - max(atr * 0.35, entry_mid * BUFFER_PCT)
-        risk = entry_mid - stop_loss
-        targets = _levels_above(entry_mid, swings, "high")
-        if not targets:
-            targets = [entry_mid + 2.5 * atr, entry_mid + 4 * atr]
-        tp1 = targets[0]
-        tp2 = targets[1] if len(targets) > 1 else tp1 + 1.5 * atr
-        reward = tp1 - entry_mid
-        rr = reward / risk if risk > 0 else 0.0
-        base.entry_zone_low = entry_zone_low
-        base.entry_zone_high = entry_zone_high
-        base.stop_loss = stop_loss
-        base.take_profit_1 = tp1
-        base.take_profit_2 = tp2
-        base.reward_risk = round(rr, 2)
-        base.commentary = "Idée longue : retest du dernier support H4 validé, stop sous invalidation."
-        if rr < MIN_RR:
-            base.withhold_reason = (
-                f"Signal retenu : le rapport gain/risque vers TP1 ({rr:.2f}) est inférieur au minimum de 2."
-            )
-        else:
-            base.signal_active = True
-        return base
-
-    # Bearish
-    resistances = _levels_above(last_price, swings, "high")
-    if not resistances:
-        base.withhold_reason = "Pas de signal : aucune résistance structurelle identifiable au-dessus du prix actuel."
-        return base
-    entry_mid = resistances[0]
-    entry_zone_low = entry_mid - zone_half
-    entry_zone_high = entry_mid + zone_half
-    stop_loss = entry_mid + max(atr * 0.35, entry_mid * BUFFER_PCT)
-    risk = stop_loss - entry_mid
-    targets = _levels_below(entry_mid, swings, "low")
-    if not targets:
-        targets = [entry_mid - 2.5 * atr, entry_mid - 4 * atr]
-    tp1 = targets[0]
-    tp2 = targets[1] if len(targets) > 1 else tp1 - 1.5 * atr
-    reward = entry_mid - tp1
-    rr = reward / risk if risk > 0 else 0.0
-    base.entry_zone_low = entry_zone_low
-    base.entry_zone_high = entry_zone_high
-    base.stop_loss = stop_loss
-    base.take_profit_1 = tp1
-    base.take_profit_2 = tp2
-    base.reward_risk = round(rr, 2)
-    base.commentary = "Idée courte : retest de la dernière résistance H4, stop au-delà de l'invalidation."
-    if rr < MIN_RR:
-        base.withhold_reason = (
-            f"Signal retenu : le rapport gain/risque vers TP1 ({rr:.2f}) est inférieur au minimum de 2."
-        )
-    else:
-        base.signal_active = True
-    return base
