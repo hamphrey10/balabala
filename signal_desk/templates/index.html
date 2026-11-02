@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bureau de signaux — Or &amp; Argent</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div>
+      <h1>Bureau de signaux</h1>
+      <p class="subtitle">XAUUSD &amp; XAGUSD — exécution manuelle, sans connexion courtier</p>
+    </div>
+    <div class="meta">
+      <span class="pill horizon">{{ horizon }}</span>
+      <span class="updated">MAJ {{ updated }}</span>
+    </div>
+  </header>
+
+  {% if fetch_error %}
+  <div class="banner error">{{ fetch_error }}</div>
+  {% endif %}
+
+  <main class="grid">
+    {% for s in signals %}
+    {% set wl = week_ladder_by_symbol.get(s.symbol) %}
+    <article class="card {% if s.signal_active %}active{% else %}plan{% endif %}">
+      <header class="card-head">
+        <h2>{{ s.symbol }}</h2>
+        <span class="bias bias-{{ s.bias.value }}">{{ s.bias.value | capitalize }}</span>
+      </header>
+
+      <div class="price-row">
+        <span class="price">{{ "%.2f"|format(s.last_price) }}</span>
+        <span class="price-note" title="{{ s.data_source }}">{{ s.price_note_fr }}</span>
+      </div>
+
+      <p class="side-line">
+        <strong>{{ s.side.value | capitalize }}</strong>
+        — {{ s.order_type_fr }} — risque {{ "%.2f"|format(s.dist_entry_stop) }} pts jusqu'au stop,
+        gain {{ "%.2f"|format(s.dist_entry_tp1) }} pts vers TP1 (~1R)
+        (R/R max TP4 {{ s.reward_risk }}×)
+      </p>
+      <p class="order-line">{{ s.order_instruction_fr }}</p>
+
+      <dl class="levels">
+        <div>
+          <dt>Entrée</dt>
+          <dd>{{ "%.2f"|format(s.entry_zone_low) }} – {{ "%.2f"|format(s.entry_zone_high) }}</dd>
+        </div>
+        <div>
+          <dt>Stop loss</dt>
+          <dd>{{ "%.2f"|format(s.stop_loss) }}</dd>
+        </div>
+        <div>
+          <dt>TP1 (~1R, 25 %)</dt>
+          <dd>{{ "%.2f"|format(s.take_profit_1) }}</dd>
+        </div>
+        <div>
+          <dt>TP2 (25 %)</dt>
+          <dd>{{ "%.2f"|format(s.take_profit_2) }}</dd>
+        </div>
+        <div>
+          <dt>TP3 (25 %)</dt>
+          <dd>{{ "%.2f"|format(s.take_profit_3) }}</dd>
+        </div>
+        <div>
+          <dt>TP4 (25 %)</dt>
+          <dd>{{ "%.2f"|format(s.take_profit_4) }}</dd>
+        </div>
+      </dl>
+
+      <p class="ladder-note">{{ s.ladder_note_fr }}</p>
+
+      {% if wl and wl.mode == 'off' %}
+      <p class="muted small">{{ wl.order_summary_fr }}</p>
+      {% elif wl %}
+      <div class="micro-plan">
+        <h3 class="micro-title">Phase {{ "%.0f"|format(wl.risk_budget_usd) }} USD — Deriv MT5 {% if wl.mode == 'ladder_4x' %}4×{{ "%.2f"|format(wl.slice_lots) }}{% else %}1×{{ "%.2f"|format(wl.slice_lots) }}{% endif %} lot</h3>
+        <p class="micro-order">{{ wl.order_summary_fr }}</p>
+        <p class="muted small">{{ wl.broker_note_fr }}</p>
+        {% if wl.risk_budget_note_fr %}<p class="muted small">{{ wl.risk_budget_note_fr }}</p>{% endif %}
+        <table class="slice-table">
+          <caption>{{ "%.3f"|format(wl.total_lots) }} lot total · ~{{ "%.2f"|format(wl.total_risk_at_stop_usd) }} USD au stop</caption>
+          <thead>
+            <tr><th>TP</th><th>Prix</th><th>Lot tranche</th><th>USD ~</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for sl in wl.slices %}
+            <tr>
+              <td>TP{{ sl.index }}</td>
+              <td>{{ "%.2f"|format(sl.price) }}</td>
+              <td>{{ "%.2f"|format(sl.lots) }}</td>
+              <td>{{ "%.2f"|format(sl.usd_locked) }}</td>
+              <td>{{ sl.action_fr }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="muted small">{{ wl.risk_after_tp1_note_fr }}</p>
+      </div>
+      {% endif %}
+
+      <p class="plan-sentence">{{ s.commentary }}</p>
+
+      {% if s.signal_active %}
+      <p class="status ok">Signal actif — seuil 2× gain/risque respecté vers TP4.</p>
+      {% else %}
+      <p class="status wait">{{ s.precondition_fr }}</p>
+      {% endif %}
+
+      <footer class="card-foot">
+        <small>Source : {{ s.data_source }}</small>
+      </footer>
+    </article>
+    {% endfor %}
+  </main>
+
+  <section class="week-plan">
+    <h2>Plan de la semaine</h2>
+    <p class="week-intro">
+      Dimensionnement pour <strong>{{ "%.0f"|format(week_risk_usd) }} USD</strong> de risque au stop par trade
+      (convention ci-dessous). Objectif utilisateur +1&nbsp;000&nbsp;USD/semaine = arithmétique seulement, sans promesse.
+    </p>
+    <p class="contract-note">{{ contract_note }}</p>
+    <table class="size-table">
+      <thead>
+        <tr>
+          <th>Symbole</th>
+          <th>Total lot</th>
+          <th>Tranche</th>
+          <th>Risque stop</th>
+          <th>Objectif (USD ~)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sz in week_sizing %}
+        {% set w = sz.week_ladder %}
+        <tr>
+          <td>{{ w.symbol }}</td>
+          <td>{% if w.mode == 'off' %}—{% else %}{{ "%.2f"|format(w.total_lots) }}{% endif %}</td>
+          <td>{% if w.mode == 'off' %}—{% else %}{{ "%.2f"|format(w.slice_lots) }}{% endif %}</td>
+          <td>{% if w.mode == 'off' %}—{% else %}{{ "%.2f"|format(w.total_risk_at_stop_usd) }} USD{% endif %}</td>
+          <td>{% if w.payout_usd is none %}<span class="muted">{{ w.payout_label_fr }}</span>{% else %}{{ w.payout_label_fr }} {{ "%.2f"|format(w.payout_usd) }} USD{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="week-hint muted">
+      Deriv MT5 : phase {{ "%.0f"|format(week_risk_usd) }} USD — or 0,04 lot (4×0,01 TP) si risque ≤ budget ; argent si 0,04 lot ≤ {{ "%.0f"|format(week_risk_usd) }} USD au stop.
+      Voir <code>docs/plan-semaine.md</code>.
+    </p>
+  </section>
+
+  <footer class="disclaimer">
+    Aucun signal n'est une certitude. Tant que TP1 n'est pas touché, la perte au stop initial reste possible sur la totalité de la position.
+  </footer>
+</body>
+</html>
