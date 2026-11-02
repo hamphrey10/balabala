@@ -135,6 +135,36 @@ def _pick_side(bias: Bias, last_price: float, range_low: float, range_high: floa
     return Side.BUY if last_price <= mid else Side.SELL
 
 
+def _next_h4_level_long(tp1: float, swings: list[SwingPoint], atr: float) -> float:
+    """Prochain pivot H4 au-dessus de TP1 (pas la projection la plus lointaine)."""
+    highs = _levels_above(tp1, swings, "high")
+    if highs:
+        return highs[0]
+    return tp1 + max(atr * 0.75, tp1 * BUFFER_PCT * 2)
+
+
+def _next_h4_level_short(tp1: float, swings: list[SwingPoint], atr: float) -> float:
+    """Prochain pivot H4 sous TP1."""
+    lows = _levels_below(tp1, swings, "low")
+    if lows:
+        return lows[0]
+    return tp1 - max(atr * 0.75, tp1 * BUFFER_PCT * 2)
+
+
+def _even_ladder_long(tp1: float, tp4: float) -> tuple[float, float, float]:
+    if tp4 <= tp1:
+        return tp1, tp1, tp1
+    span = tp4 - tp1
+    return tp1 + span / 3.0, tp1 + 2.0 * span / 3.0, tp4
+
+
+def _even_ladder_short(tp1: float, tp4: float) -> tuple[float, float, float]:
+    if tp4 >= tp1:
+        return tp1, tp1, tp1
+    span = tp1 - tp4
+    return tp1 - span / 3.0, tp1 - 2.0 * span / 3.0, tp4
+
+
 def _four_tps_long(
     entry_mid: float, stop: float, swings: list[SwingPoint], atr: float
 ) -> tuple[float, float, float, float, float]:
@@ -142,16 +172,10 @@ def _four_tps_long(
     if risk <= 0:
         risk = entry_mid * BUFFER_PCT
     tp1 = entry_mid + risk
-    highs = _levels_above(entry_mid, swings, "high")
-    tp4 = max(highs) if highs else entry_mid + 4.0 * atr
-    if tp4 <= entry_mid:
-        tp4 = entry_mid + 4.0 * atr
-    span = max(tp4 - tp1, 0.0)
-    if span <= 0:
-        tp2 = tp3 = tp4
-    else:
-        tp2 = tp1 + span / 3.0
-        tp3 = tp1 + 2.0 * span / 3.0
+    tp4 = _next_h4_level_long(tp1, swings, atr)
+    if tp4 <= tp1:
+        tp4 = tp1 + max(risk, atr * 0.5)
+    tp2, tp3, tp4 = _even_ladder_long(tp1, tp4)
     rr = (tp4 - entry_mid) / risk if risk > 0 else 0.0
     return tp1, tp2, tp3, tp4, rr
 
@@ -163,16 +187,10 @@ def _four_tps_short(
     if risk <= 0:
         risk = entry_mid * BUFFER_PCT
     tp1 = entry_mid - risk
-    lows = _levels_below(entry_mid, swings, "low")
-    tp4 = min(lows) if lows else entry_mid - 4.0 * atr
-    if tp4 >= entry_mid:
-        tp4 = entry_mid - 4.0 * atr
-    span = max(tp1 - tp4, 0.0)
-    if span <= 0:
-        tp2 = tp3 = tp4
-    else:
-        tp2 = tp1 - span / 3.0
-        tp3 = tp1 - 2.0 * span / 3.0
+    tp4 = _next_h4_level_short(tp1, swings, atr)
+    if tp4 >= tp1:
+        tp4 = tp1 - max(risk, atr * 0.5)
+    tp2, tp3, tp4 = _even_ladder_short(tp1, tp4)
     rr = (entry_mid - tp4) / risk if risk > 0 else 0.0
     return tp1, tp2, tp3, tp4, rr
 

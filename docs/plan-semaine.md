@@ -2,42 +2,42 @@
 
 **Exécution :** Deriv + **MT5**, manuel. **Aucune promesse de gain.**
 
-**Budget risque au stop :** **50 USD**.
+**Budget risque au stop :** **50 USD** · **0,04 lot** (4 clôtures **0,01**).
 
-**Prix proxy (Yahoo → H4) :** tirage **2026-11-02 08:47 UTC** (rechargez le bureau avant ordre).
-
-**Specs Deriv :** [Trading specifications | Deriv MT5](https://trade.deriv.com/trading-specifications) — **XAUUSD** 100 XAU/lot, **min & pas 0,01 lot**. Échelle 4 TP = **0,04 lot** (4 × **0,01**).
+**Prix proxy (Yahoo → H4) :** tirage **2026-11-02 08:49 UTC**.
 
 ---
 
-## XAUUSD — tirage du matin
+## Statut — ne pas envoyer d’ordre
 
-**Cours proxy :** **3 904,80**
+**Biais H4 : range** → **signal inactif**. **N’envoyez aucun ordre** (ni buy ni sell) tant que le bureau n’affiche pas un signal **actif**.
 
-**Signal H4 :** **inactif** (biais range / structure non confirmée). **Ne pas placer d’ordre** tant que le bureau n’affiche pas un signal actif.
+---
 
-Le plan **sell limit** de la veille (entrée ~3 989 / stop ~4 001) **n’est plus** celui du bureau après ce tirage.
+## XAUUSD — niveaux de référence (signal OFF)
 
-### Niveaux mécaniques (référence seulement — signal OFF)
+**Cours proxy :** **3 907,50**
 
 | | |
 |--|--|
-| Type calculé | Buy limit **3 879,30** (pas sell) |
-| Volume (si actif) | **0,04 lot** (4 × **0,01**) |
+| Type calculé | Buy limit **3 879,30** |
+| Volume (si un jour actif) | **0,04 lot** (4 × **0,01**) |
 | Stop loss | **3 869,08** |
 | Risque au stop | **~40,90 USD** (≤ 50 USD) |
 
-**Clôture H4 proxy :** **3 904,80** — **au-dessus du stop** **3 869,08** (pour un long en attente, le prix est au-dessus du stop ; avec signal **inactif**, ne pas envoyer l’ordre).
+**Échelle H4** : TP1 ≈ **1R**, puis TP2–TP4 en paliers **égaux** jusqu’au **prochain pivot H4** (pas de cibles à +400 / +800 pts).
 
-| TP | Prix | USD ~ (0,01 lot) |
-|----|------|------------------|
-| TP1 (~1R) | **3 889,53** | **~10,23** |
-| TP2 | **4 178,02** | **~298,72** |
-| TP3 | **4 466,51** | **~587,21** |
-| TP4 | **4 755,00** | **~875,70** |
+| TP | Prix | USD ~ (0,01 lot) | Action |
+|----|------|------------------|--------|
+| **TP1** (~1R) | **3 889,53** | **~10,23** | Clôturer **0,01** ; stop reliquat → **3 879,30** |
+| **TP2** | **3 941,02** | **~61,72** | Clôturer **0,01** |
+| **TP3** | **3 992,51** | **~113,21** | Clôturer **0,01** |
+| **TP4** (pivot H4 ~4 044) | **4 044,00** | **~164,70** | Clôturer **0,01** |
+
+**Cumul arithmétique si les 4 TP touchés :** **~349,86 USD** (sans promesse).
 
 ---
 
 ## Rappel
 
-Pas d’ordre au marché hors zone. Vérifiez *Spécification* XAUUSD dans MT5 avant tout envoi.
+Rechargez le bureau avant tout envoi. Vérifiez *Spécification* XAUUSD dans MT5.
