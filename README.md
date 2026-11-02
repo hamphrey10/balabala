@@ -30,6 +30,23 @@ Ouvrir [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 API JSON (optionnel) : [http://127.0.0.1:8000/api/signals](http://127.0.0.1:8000/api/signals)
 
+## Alertes signal actif (sans mail / Telegram)
+
+Quand `signal_active` passe de **false** à **true** pour XAUUSD ou XAGUSD, le bureau écrit une alerte en français dans `alerte-active.md` (écrasé à chaque nouvelle alerte) et une ligne dans `alerte-log.txt` (empreinte du plan, pour ne pas ré-alerter le même signal).
+
+Par défaut : `/cursor/stores/self/docs/` (variable `SIGNAL_DESK_ALERT_DIR` pour changer le dossier).
+
+Vérification manuelle ou cron :
+
+```bash
+source .venv/bin/activate
+python -m signal_desk.alerts
+```
+
+Même logique via HTTP si le serveur tourne : [http://127.0.0.1:8000/api/alerts/check](http://127.0.0.1:8000/api/alerts/check)
+
+**Envoi à l’utilisateur** : non branché — il faudra ajouter **Telegram** ou **e-mail** plus tard.
+
 ## Données de marché
 
 Les cours proviennent de **Yahoo Finance** :
@@ -48,6 +65,7 @@ signal_desk/
   main.py       # Serveur FastAPI + page d’accueil
   data.py       # Téléchargement et préparation H4
   analysis.py   # Biais, niveaux, filtre R/R ≥ 2
+  alerts.py     # Alerte false→true, fichier alerte-active.md
   templates/    # Interface HTML (français)
   static/       # Styles
 ```

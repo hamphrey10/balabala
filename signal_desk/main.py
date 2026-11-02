@@ -65,6 +65,18 @@ async def index(request: Request) -> HTMLResponse:
     )
 
 
+@app.get("/api/alerts/check")
+async def api_alerts_check() -> dict:
+    from signal_desk.alerts import active_alert_path, check_alerts
+
+    events = check_alerts(write=True)
+    return {
+        "new_alerts": len(events),
+        "messages": [e.body_fr for e in events],
+        "active_alert_file": str(active_alert_path()),
+    }
+
+
 @app.get("/api/signals")
 async def api_signals() -> dict:
     signals, fetch_error = _load_signals()
