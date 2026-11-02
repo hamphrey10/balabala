@@ -222,7 +222,8 @@ def check_alerts(*, write: bool = True) -> list[AlertEvent]:
             continue
 
         fp = _fingerprint(signal, ladder)
-        if alert_ack and fp == last_fp:
+        if alert_ack:
+            # Déjà alerté pour cette phase active : pas de renvoi si le plan dérive.
             state[sym] = {
                 "signal_active": True,
                 "last_alert_fingerprint": last_fp,
