@@ -1,10 +1,13 @@
-"""Alertes signal actif (false → true) — persistance locale, pas d’envoi mail/Telegram."""
+"""Alertes signal actif (false → true) — fichier store + Telegram optionnel."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,7 +26,10 @@ ACTIVE_FILENAME = "alerte-active.md"
 class AlertEvent:
     symbol: str
     body_fr: str
+    body_plain_fr: str
     fingerprint: str
+    telegram_sent: bool = False
+    telegram_note_fr: str = ""
 
 
 def alert_dir() -> Path:
@@ -41,6 +47,12 @@ def _log_path() -> Path:
 
 def active_alert_path() -> Path:
     return alert_dir() / ACTIVE_FILENAME
+
+
+def telegram_configured() -> bool:
+    return bool(os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()) and bool(
+        os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    )
 
 
 def _load_state() -> dict[str, dict[str, object]]:
@@ -93,25 +105,62 @@ def _sizing_for_alert(signal: SignalResult) -> LadderSizing | None:
     return ladder
 
 
-def format_alert_fr(signal: SignalResult, ladder: LadderSizing, ts: str) -> str:
+def _alert_lines(signal: SignalResult, ladder: LadderSizing) -> tuple[str, str]:
     entry = _format_price(signal.symbol, signal.entry_mid)
     stop = _format_price(signal.symbol, signal.stop_loss)
     risk = f"{ladder.total_risk_at_stop_usd:.2f}"
 
     if ladder.mode == "ladder_4x":
         tps = " / ".join(_format_price(signal.symbol, s.price) for s in ladder.slices)
-        lots_line = f"**{ladder.total_lots:.2f} lot** (4×{ladder.slice_lots:.2f})"
-        tp_line = f"TP **{tps}**"
+        lots_md = f"**{ladder.total_lots:.2f} lot** (4×{ladder.slice_lots:.2f})"
+        lots_plain = f"{ladder.total_lots:.2f} lot (4×{ladder.slice_lots:.2f})"
+        tp_md = f"TP **{tps}**"
+        tp_plain = f"TP {tps}"
     else:
         tp = _format_price(signal.symbol, signal.take_profit_1)
-        lots_line = f"**{ladder.total_lots:.2f} lot**"
-        tp_line = f"TP unique **{tp}** (~1R)"
+        lots_md = f"**{ladder.total_lots:.2f} lot**"
+        lots_plain = f"{ladder.total_lots:.2f} lot"
+        tp_md = f"TP unique **{tp}** (~1R)"
+        tp_plain = f"TP unique {tp} (~1R)"
 
-    return (
+    md = (
         f"**{signal.symbol}** — tu poses **{signal.order_type_fr}** à **{entry}**, "
-        f"{lots_line}, stop **{stop}**, {tp_line}, risque au stop **~{risk} USD** "
+        f"{lots_md}, stop **{stop}**, {tp_md}, risque au stop **~{risk} USD** "
         f"(budget Deriv {WEEK_RISK_USD:.0f} USD)."
     )
+    plain = (
+        f"{signal.symbol} — tu poses {signal.order_type_fr} à {entry}, "
+        f"{lots_plain}, stop {stop}, {tp_plain}, risque au stop ~{risk} USD "
+        f"(budget Deriv {WEEK_RISK_USD:.0f} USD)."
+    )
+    return md, plain
+
+
+def format_alert_fr(signal: SignalResult, ladder: LadderSizing, ts: str) -> str:
+    md, _plain = _alert_lines(signal, ladder)
+    return md
+
+
+def send_telegram_message(text: str) -> tuple[bool, str]:
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat_id:
+        return False, "Envoi Telegram en attente : définir TELEGRAM_BOT_TOKEN et TELEGRAM_CHAT_ID."
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            if resp.status != 200:
+                return False, f"Telegram HTTP {resp.status}"
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")[:200]
+        return False, f"Telegram refusé ({exc.code}) : {body}"
+    except urllib.error.URLError as exc:
+        return False, f"Telegram indisponible : {exc.reason}"
+
+    return True, "Message Telegram envoyé."
 
 
 def load_all_signals() -> tuple[list[SignalResult], str | None]:
@@ -136,7 +185,7 @@ def load_all_signals() -> tuple[list[SignalResult], str | None]:
 
 
 def check_alerts(*, write: bool = True) -> list[AlertEvent]:
-    """Détecte les passages signal_active false → true et écrit l’alerte si nouveau plan."""
+    """Détecte les passages signal_active false → true, fichier store + Telegram."""
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     state = _load_state()
     events: list[AlertEvent] = []
@@ -161,29 +210,57 @@ def check_alerts(*, write: bool = True) -> list[AlertEvent]:
             if fp == last_fp:
                 state[sym] = {"signal_active": True, "last_alert_fingerprint": fp}
                 continue
-            body = format_alert_fr(signal, ladder, ts)
-            events.append(AlertEvent(sym, body, fp))
+            body_md, body_plain = _alert_lines(signal, ladder)
+            sent, tg_note = (False, "")
+            if write:
+                sent, tg_note = send_telegram_message(body_plain)
+            events.append(
+                AlertEvent(
+                    symbol=sym,
+                    body_fr=body_md,
+                    body_plain_fr=body_plain,
+                    fingerprint=fp,
+                    telegram_sent=sent,
+                    telegram_note_fr=tg_note,
+                )
+            )
             state[sym] = {"signal_active": True, "last_alert_fingerprint": fp}
             if write:
-                _append_log(f"{datetime.now(timezone.utc).isoformat()} {sym} fp={fp} alerted")
+                tg_flag = "telegram_ok" if sent else "telegram_pending"
+                _append_log(
+                    f"{datetime.now(timezone.utc).isoformat()} {sym} fp={fp} alerted {tg_flag}"
+                )
         else:
             state[sym] = {
                 "signal_active": signal.signal_active,
-                "last_alert_fingerprint": last_fp if signal.signal_active else last_fp,
+                "last_alert_fingerprint": last_fp,
             }
 
-    if write:
+    if write and events:
         _save_state(state)
-        if events:
-            doc = (
-                f"# Alerte signal actif\n\n"
-                f"*Généré : {ts} — canal d’envoi (mail/Telegram) non configuré.*\n\n"
-                + "\n\n".join(e.body_fr for e in events)
-                + "\n"
+        if telegram_configured():
+            channel_line = "*Canal : Telegram.*"
+        else:
+            channel_line = (
+                "*Envoi Telegram en attente* — définir `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID`."
             )
-            path = active_alert_path()
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(doc, encoding="utf-8")
+        tg_lines = []
+        for ev in events:
+            tg_lines.append(f"- {ev.symbol} : {ev.telegram_note_fr}")
+        doc = (
+            f"# Alerte signal actif\n\n"
+            f"*Généré : {ts}.*\n\n"
+            f"{channel_line}\n\n"
+            + "\n\n".join(e.body_fr for e in events)
+            + "\n\n## Envoi\n\n"
+            + "\n".join(tg_lines)
+            + "\n"
+        )
+        path = active_alert_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(doc, encoding="utf-8")
+    elif write:
+        _save_state(state)
 
     return events
 
@@ -194,7 +271,8 @@ def main() -> None:
         print("Aucune nouvelle alerte (pas de bascule false → true, ou doublon déjà loggé).")
         return
     for ev in events:
-        print(ev.body_fr)
+        print(ev.body_plain_fr)
+        print(ev.telegram_note_fr)
 
 
 if __name__ == "__main__":

@@ -72,7 +72,11 @@ async def api_alerts_check() -> dict:
     events = check_alerts(write=True)
     return {
         "new_alerts": len(events),
-        "messages": [e.body_fr for e in events],
+        "messages": [e.body_plain_fr for e in events],
+        "telegram": [
+            {"symbol": e.symbol, "sent": e.telegram_sent, "note": e.telegram_note_fr}
+            for e in events
+        ],
         "active_alert_file": str(active_alert_path()),
     }
 

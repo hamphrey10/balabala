@@ -30,22 +30,35 @@ Ouvrir [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 API JSON (optionnel) : [http://127.0.0.1:8000/api/signals](http://127.0.0.1:8000/api/signals)
 
-## Alertes signal actif (sans mail / Telegram)
+## Alertes signal actif (Telegram)
 
-Quand `signal_active` passe de **false** à **true** pour XAUUSD ou XAGUSD, le bureau écrit une alerte en français dans `alerte-active.md` (écrasé à chaque nouvelle alerte) et une ligne dans `alerte-log.txt` (empreinte du plan, pour ne pas ré-alerter le même signal).
+Quand `signal_active` passe de **false** à **true** pour XAUUSD ou XAGUSD, le bureau :
 
-Par défaut : `/cursor/stores/self/docs/` (variable `SIGNAL_DESK_ALERT_DIR` pour changer le dossier).
+1. écrit l’alerte en français dans `alerte-active.md` (écrasé à chaque nouvelle alerte) ;
+2. ajoute une ligne dans `alerte-log.txt` (empreinte `fp=…` — **pas de renvoi** du même plan) ;
+3. envoie **un message Telegram** si les variables ci-dessous sont définies.
 
-Vérification manuelle ou cron :
+Dossier par défaut : `/cursor/stores/self/docs/` (variable `SIGNAL_DESK_ALERT_DIR` pour le changer).
+
+### Variables d’environnement Telegram
+
+| Variable | Rôle |
+|----------|------|
+| `TELEGRAM_BOT_TOKEN` | Token du bot [@BotFather](https://t.me/BotFather) |
+| `TELEGRAM_CHAT_ID` | Identifiant du chat ou du canal de destination |
+
+Ne commitez **jamais** ces valeurs. Sans elles, l’alerte est quand même écrite dans `alerte-active.md` avec la mention *envoi en attente*.
+
+### Lancer une vérification
 
 ```bash
 source .venv/bin/activate
-python -m signal_desk.alerts
+export TELEGRAM_BOT_TOKEN="…"
+export TELEGRAM_CHAT_ID="…"
+python3 -m signal_desk.alerts
 ```
 
 Même logique via HTTP si le serveur tourne : [http://127.0.0.1:8000/api/alerts/check](http://127.0.0.1:8000/api/alerts/check)
-
-**Envoi à l’utilisateur** : non branché — il faudra ajouter **Telegram** ou **e-mail** plus tard.
 
 ## Données de marché
 
