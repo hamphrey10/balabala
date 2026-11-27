@@ -21,6 +21,7 @@ Fixed all six review findings before merge:
 7. D1 weekend/holiday gaps (3–4d) treated as session breaks, not missing
 8. Full tick pages re-fetch the boundary second before advancing (+1s)
 9. Boundary/range refill uses end-of-second (…999ms), not from==to
+10. Pagination cursor truncated to second start; filter keeps ticks through …999ms
 
 ---
 

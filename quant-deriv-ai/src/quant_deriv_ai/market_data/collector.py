@@ -144,13 +144,13 @@ class MarketDataCollector:
         not dropped.
         """
         chunks: list[pd.DataFrame] = []
-        cursor = date_from
-        end = date_to
-        # Second-resolution filter bound (user window).
-        end_second = _as_utc(end).replace(microsecond=0)
-        end_ts = pd.Timestamp(end_second)
-        # MT5 range end must cover the last ms of the final second.
+        # Truncate to second starts so microsecond ``now()`` cursors still enter
+        # the loop for same-second windows.
+        cursor = _as_utc(date_from).replace(microsecond=0)
+        end_second = _as_utc(date_to).replace(microsecond=0)
+        # Keep ticks through the last ms of the final second (not floor second).
         api_end = _end_of_second(end_second)
+        end_ts = pd.Timestamp(api_end)
         pages = 0
         use_range = hasattr(self._source, "copy_ticks_range")
         # Allow from == to (same-second windows with multiple ticks).
@@ -223,9 +223,10 @@ class MarketDataCollector:
         frame = ticks_to_frame(batch)
         if frame.empty:
             return frame
-        # Keep only ticks whose second-resolution timestamp matches the boundary.
-        target = pd.Timestamp(second_start)
-        frame = frame.loc[frame["time"] == target].reset_index(drop=True)
+        # Keep every tick inside [second_start, second_end] (incl. sub-second).
+        lo = pd.Timestamp(second_start)
+        hi = pd.Timestamp(second_end)
+        frame = frame.loc[(frame["time"] >= lo) & (frame["time"] <= hi)].reset_index(drop=True)
         if len(batch) >= _TICK_PAGE_SIZE:
             log.warning(
                 "tick second {} may exceed page size {} — API truncated",

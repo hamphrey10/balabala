@@ -282,6 +282,49 @@ def test_end_of_second_range_covers_full_second() -> None:
     assert start <= start and tick_end <= _end_of_second(start)
 
 
+def test_same_second_fetch_with_microsecond_cursor(tmp_path: Path) -> None:
+    """date_from with µs in the same second as date_to must not skip the loop."""
+
+    class MicroSource(MockSource):
+        def copy_ticks_range(
+            self,
+            symbol: str,
+            date_from: datetime,
+            date_to: datetime,
+            *,
+            flags: int | None = None,
+        ) -> list[TickData]:
+            _ = flags
+            start = date_from.astimezone(UTC) if date_from.tzinfo else date_from.replace(tzinfo=UTC)
+            end = date_to.astimezone(UTC) if date_to.tzinfo else date_to.replace(tzinfo=UTC)
+            # One tick at second.000 and one at second.500 (sub-second).
+            base = start.replace(microsecond=0)
+            ticks = [
+                TickData(symbol=symbol, time=base, bid=1.10, ask=1.11),
+                TickData(
+                    symbol=symbol,
+                    time=base + timedelta(milliseconds=500),
+                    bid=1.12,
+                    ask=1.13,
+                ),
+            ]
+            return [t for t in ticks if start <= t.time <= end]
+
+    engine = MarketDataEngine.from_root(
+        tmp_path / "data",
+        source=MicroSource(),
+        settings=DataSettings(freshness_max_age_s=31_536_000),
+    )
+    # Same wall-clock second: from has microseconds (as datetime.now often does).
+    second = datetime(2024, 6, 1, 15, 30, 0, tzinfo=UTC)
+    date_from = second + timedelta(microseconds=250_000)
+    date_to = second + timedelta(microseconds=750_000)
+    result = engine.download_ticks("EURUSD", date_from, date_to)
+    stored = engine.store.read_working(symbol="EURUSD", kind=SeriesKind.TICKS)
+    assert result.rows_fetched >= 1
+    assert len(stored) == 2, f"expected both sub-second ticks, got {len(stored)}"
+
+
 def test_tick_pagination_keeps_boundary_second(tmp_path: Path) -> None:
     """Full page ending mid-second must not drop remaining ticks in that second."""
 
