@@ -8,11 +8,11 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from quant_deriv_ai.config.settings import load_config
+from quant_deriv_ai.config.settings import QuantConfig, load_config
 from quant_deriv_ai.core.exceptions import ConfigError, LiveAccountForbiddenError, QuantDerivError
 from quant_deriv_ai.core.logging import configure_logging, get_logger
 from quant_deriv_ai.execution.mt5.client import Mt5Client, detect_terminal, import_mt5
-from quant_deriv_ai.execution.mt5.credentials import load_credentials_from_env
+from quant_deriv_ai.execution.mt5.credentials import Mt5Credentials, load_credentials_from_env
 from quant_deriv_ai.security.guards import assert_demo_only
 
 mt5_app = typer.Typer(help="MetaTrader 5 DEMO connector (read-only; no orders)")
@@ -24,11 +24,32 @@ log = get_logger(__name__)
 _client: Mt5Client | None = None
 
 
-def _get_client() -> Mt5Client:
+def _get_client(cfg: QuantConfig | None = None) -> Mt5Client:
+    """Return the process-local client, applying YAML MT5 settings on first create."""
     global _client
     if _client is None:
-        _client = Mt5Client()
+        settings = (cfg if cfg is not None else load_config()).mt5
+        _client = Mt5Client(
+            timeout_ms=settings.timeout_ms,
+            max_retries=settings.max_retries,
+            backoff_base_s=settings.backoff_base_s,
+            heartbeat_interval_s=settings.heartbeat_interval_s,
+        )
     return _client
+
+
+def _resolve_credentials(cfg: QuantConfig) -> Mt5Credentials:
+    """Load env/.env credentials; fill terminal_path from config when unset."""
+    creds = load_credentials_from_env(require_complete=True)
+    assert creds is not None
+    if not creds.terminal_path and cfg.mt5.terminal_path:
+        return Mt5Credentials(
+            login=creds.login,
+            password=creds.password,
+            server=creds.server,
+            terminal_path=cfg.mt5.terminal_path,
+        )
+    return creds
 
 
 @mt5_app.command("connect")
@@ -38,9 +59,8 @@ def mt5_connect() -> None:
     try:
         cfg = load_config()
         assert_demo_only(cfg.trading.mode)
-        creds = load_credentials_from_env(require_complete=True)
-        assert creds is not None
-        client = _get_client()
+        creds = _resolve_credentials(cfg)
+        client = _get_client(cfg)
         account = client.connect(creds)
     except LiveAccountForbiddenError as exc:
         err_console.print(f"[red]LIVE lock:[/red] {exc}")
@@ -112,12 +132,11 @@ def mt5_status() -> None:
 def mt5_account() -> None:
     """Print DEMO account balance, equity, margin, currency, server."""
     configure_logging(level="INFO")
-    client = _get_client()
+    cfg = load_config()
+    client = _get_client(cfg)
     try:
         if client.state.value != "connected":
-            creds = load_credentials_from_env(require_complete=True)
-            assert creds is not None
-            account = client.connect(creds)
+            account = client.connect(_resolve_credentials(cfg))
         else:
             account = client.account_info()
     except LiveAccountForbiddenError as exc:
@@ -142,12 +161,11 @@ def mt5_symbols(
 ) -> None:
     """List instruments discovered dynamically from the terminal."""
     configure_logging(level="INFO")
-    client = _get_client()
+    cfg = load_config()
+    client = _get_client(cfg)
     try:
         if client.state.value != "connected":
-            creds = load_credentials_from_env(require_complete=True)
-            assert creds is not None
-            client.connect(creds)
+            client.connect(_resolve_credentials(cfg))
         names = client.list_symbols(group=group)
     except LiveAccountForbiddenError as exc:
         err_console.print(f"[red]LIVE lock:[/red] {exc}")
@@ -172,12 +190,11 @@ def mt5_positions(
 ) -> None:
     """List open positions (read-only)."""
     configure_logging(level="INFO")
-    client = _get_client()
+    cfg = load_config()
+    client = _get_client(cfg)
     try:
         if client.state.value != "connected":
-            creds = load_credentials_from_env(require_complete=True)
-            assert creds is not None
-            client.connect(creds)
+            client.connect(_resolve_credentials(cfg))
         positions = client.positions(symbol=symbol)
     except LiveAccountForbiddenError as exc:
         err_console.print(f"[red]LIVE lock:[/red] {exc}")

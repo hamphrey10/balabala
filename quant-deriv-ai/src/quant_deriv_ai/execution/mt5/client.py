@@ -549,7 +549,20 @@ class Mt5Client:
                     delay,
                 )
                 time.sleep(delay)
-                self._reconnect()
+                try:
+                    self._reconnect()
+                except LiveAccountForbiddenError:
+                    raise
+                except Mt5ConnectionError as reconnect_exc:
+                    # Transient reconnect/IPC failures must not abort the remaining
+                    # retry budget — keep backing off until max_retries is exhausted.
+                    last_exc = reconnect_exc
+                    log.warning(
+                        "mt5 reconnect failed (attempt {}/{}): {}",
+                        attempt,
+                        self._max_retries,
+                        reconnect_exc,
+                    )
             except Mt5Error:
                 raise
         assert last_exc is not None

@@ -321,6 +321,44 @@ def test_reconnect_with_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.unit
+def test_call_with_retry_continues_after_reconnect_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Transient reconnect errors must not abort remaining max_retries (Bugbot)."""
+    fake = FakeMT5()
+    client = Mt5Client(
+        mt5_module=fake,
+        max_retries=2,
+        backoff_base_s=0.01,
+        backoff_max_s=0.02,
+        heartbeat_interval_s=3600,
+    )
+    client.connect(_creds())
+    monkeypatch.setattr(
+        "quant_deriv_ai.execution.mt5.client.time.sleep", lambda _delay: None
+    )
+
+    calls = {"fn": 0, "reconnect": 0}
+
+    def flaky_fn() -> str:
+        calls["fn"] += 1
+        if calls["fn"] < 3:
+            raise Mt5ConnectionError("transient ipc")
+        return "ok"
+
+    def flaky_reconnect() -> None:
+        calls["reconnect"] += 1
+        if calls["reconnect"] == 1:
+            raise Mt5ConnectionError("reconnect ipc fail")
+        # Subsequent reconnects succeed (state already connected for this unit test).
+
+    monkeypatch.setattr(client, "_reconnect", flaky_reconnect)
+    assert client._call_with_retry(flaky_fn) == "ok"  # noqa: SLF001
+    assert calls["reconnect"] >= 1
+    assert calls["fn"] == 3
+
+
+@pytest.mark.unit
 def test_no_order_methods_exposed() -> None:
     methods = [m for m in dir(Mt5Client) if not m.startswith("_")]
     ensure_no_order_apis(methods)
