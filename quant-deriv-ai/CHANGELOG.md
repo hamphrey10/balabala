@@ -2,6 +2,38 @@
 
 Format : entrées par lot, du plus récent au plus ancien. Pas de métriques de performance inventées.
 
+## [LOT-002] — Connecteur MetaTrader5 DEMO (lecture seule)
+
+### Ajouté
+
+- Package `execution/mt5/` : client, credentials env-only, live lock, modèles, erreurs
+- CLI `quant mt5` : connect / status / account / symbols / positions / disconnect
+- Tests unitaires mockés + intégration skippée (BLOCKED sans terminal Windows)
+- Rapport : `docs/LOT-002-REPORT.md`
+
+### Notes
+
+- Aucun API d'ordre (`order_send` / place / modify / close) exposé.
+- Comptes non-DEMO engagent un verrou permanent (`LiveAccountLock`).
+- Sur Linux : package MetaTrader5 non installable — intégration réelle **BLOCKED** (pas un PASS inventé).
+
+## [LOT-001] — Fondation projet Python
+
+### Ajouté
+
+- `pyproject.toml` (Ruff, MyPy, Pytest, entry point `quant`)
+- Packages modulaires sous `src/quant_deriv_ai/` (core, config, agents, strategies stub, …)
+- Config YAML + validation Pydantic (`config/default.yaml`)
+- `.env.example`, `.gitignore`
+- CLI : `quant version` / `doctor` / `status` / `config validate`
+- Suite Pytest ; rapports `docs/LOT-001-REPORT.md`
+
+### Notes
+
+- Mode trading DEMO-only (`allow_live=false`).
+- Aucune stratégie de trading au-delà des stubs vides.
+- MetaTrader5 : FAIL attendu sur Linux (wheels Windows only).
+
 ## [LOT-000] — Fondation documentaire
 
 ### Ajouté

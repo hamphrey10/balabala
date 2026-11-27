@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment / secrets — never commit real credentials
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+.tox/
+.cache/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local data / artifacts (runtime)
+data/
+logs/
+*.db
+*.sqlite
+*.parquet
+*.duckdb
+
+# MT5 / broker local state
+*.hcc
+*.hc
+terminals/

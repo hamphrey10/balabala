@@ -1,0 +1,35 @@
+# QUANT DERIV AI — default configuration (DEMO only)
+# Validated by Pydantic models in quant_deriv_ai.config.settings
+
+app:
+  name: quant-deriv-ai
+  environment: development
+  log_level: INFO
+
+trading:
+  # Only "demo" is accepted in this phase.
+  mode: demo
+  allow_live: false
+
+risk:
+  # Principles only — numeric limits refined in later lots.
+  capital_preservation_priority: true
+  martingale_forbidden: true
+  aggressive_loss_recovery_forbidden: true
+  require_demonstrated_edge: true
+  abstain_without_edge: true
+
+mt5:
+  # Connection parameters come from environment variables, never from this file's secrets.
+  enabled: false
+  # Path to terminal executable (Windows). Empty on non-Windows hosts.
+  terminal_path: ""
+  timeout_ms: 60000
+  max_retries: 3
+  backoff_base_s: 0.5
+  heartbeat_interval_s: 30
+
+logging:
+  structured: true
+  serialize: false
+  sink: stderr
