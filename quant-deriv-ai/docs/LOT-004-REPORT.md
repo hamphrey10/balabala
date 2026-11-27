@@ -52,7 +52,7 @@ SMA, EMA, RSI, MACD, ATR, ADX, Bollinger, Stochastic, Donchian, ROC, Momentum, C
 
 | Check | Command | Exit | Result |
 | --- | --- | --- | --- |
-| Pytest | `python3.12 -m pytest` | 0 | **90 passed, 2 skipped** |
+| Pytest | `python3.12 -m pytest` | 0 | **95 passed, 2 skipped** (after Bugbot fixes) |
 | Ruff | `ruff check src tests` | 0 | **All checks passed** |
 | MyPy | `mypy src/quant_deriv_ai` | 0 | **Success** (66 source files) |
 | CLI analyze | `quant analyze --help` | 0 | `technical` listed |
@@ -98,3 +98,4 @@ Skipped tests (honest BLOCKED from prior lots, not PASS):
 
 - Stacked on LOT-003 branch `cursor/lot-003-market-data-engine-4ad8` (PR #6).
 - Overall **PASS** for unit/reference/lint/typecheck/CLI controls that were executed and green.
+- Follow-up on PR #7: fixed 4 Bugbot findings (normalized indicator dispatch, UNKNOWN when SMA missing, MTF inherits engine trend params, ADX no `fillna(0)` seed).
