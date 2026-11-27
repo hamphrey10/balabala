@@ -72,6 +72,8 @@ class DerivClient:
             self._endpoint = creds.endpoint
             self._app_id = creds.app_id
             try:
+                # Close any prior session before opening a new WebSocket.
+                self._safe_close_unlocked()
                 self._transport.open(url)
                 # authorize — token never logged
                 auth_resp = self._transport.request({"authorize": creds.api_token})

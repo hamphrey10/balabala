@@ -12,7 +12,7 @@ from quant_deriv_ai.config.settings import QuantConfig, load_config
 from quant_deriv_ai.core.exceptions import ConfigError, LiveAccountForbiddenError, QuantDerivError
 from quant_deriv_ai.core.logging import configure_logging, get_logger
 from quant_deriv_ai.execution.deriv.client import DerivClient
-from quant_deriv_ai.execution.deriv.credentials import load_credentials_from_env
+from quant_deriv_ai.execution.deriv.credentials import DerivCredentials, load_credentials_from_env
 from quant_deriv_ai.security.guards import assert_demo_only
 
 deriv_app = typer.Typer(help="Deriv WebSocket API DEMO connector (read-only; no orders)")
@@ -39,6 +39,16 @@ def _get_client(cfg: QuantConfig | None = None) -> DerivClient:
     return _client
 
 
+def _resolve_credentials(cfg: QuantConfig) -> DerivCredentials:
+    """Load env/.env creds; apply YAML ``deriv.endpoint`` when env endpoint unset."""
+    creds = load_credentials_from_env(
+        require_complete=True,
+        default_endpoint=cfg.deriv.endpoint,
+    )
+    assert creds is not None
+    return creds
+
+
 @deriv_app.command("connect")
 def deriv_connect() -> None:
     """Open WebSocket, authorize with API token, verify DEMO (is_virtual=1)."""
@@ -46,8 +56,7 @@ def deriv_connect() -> None:
     try:
         cfg = load_config()
         assert_demo_only(cfg.trading.mode)
-        creds = load_credentials_from_env(require_complete=True)
-        assert creds is not None
+        creds = _resolve_credentials(cfg)
         client = _get_client(cfg)
         account = client.connect(creds)
     except LiveAccountForbiddenError as exc:
@@ -90,9 +99,7 @@ def deriv_account() -> None:
     client = _get_client(cfg)
     try:
         if client.state.value != "connected":
-            creds = load_credentials_from_env(require_complete=True)
-            assert creds is not None
-            account = client.connect(creds)
+            account = client.connect(_resolve_credentials(cfg))
         else:
             account = client.account_info()
     except LiveAccountForbiddenError as exc:

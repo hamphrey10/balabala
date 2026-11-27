@@ -40,11 +40,15 @@ def load_credentials_from_env(
     *,
     require_complete: bool = True,
     env_file: str | Path | None = None,
+    default_endpoint: str | None = None,
 ) -> DerivCredentials | None:
     """Load Deriv credentials from process env and optional ``.env`` file.
 
     Expected keys (placeholders only in ``.env.example``):
     ``DERIV_APP_ID``, ``DERIV_API_TOKEN``, optional ``DERIV_ENDPOINT``.
+
+    Endpoint precedence: explicit ``DERIV_ENDPOINT`` env → ``default_endpoint``
+    (typically ``QuantConfig.deriv.endpoint`` from YAML) → official default.
 
     Obtain access at https://api.deriv.com (register an app → app_id) and create
     an API token in the Deriv account (demo/virtual recommended). Never commit
@@ -57,7 +61,11 @@ def load_credentials_from_env(
 
     app_id = (env.deriv_app_id or "").strip()
     api_token = (env.deriv_api_token or "").strip()
-    endpoint = (env.deriv_endpoint or "").strip() or DEFAULT_DERIV_ENDPOINT
+    endpoint = (
+        (env.deriv_endpoint or "").strip()
+        or (default_endpoint or "").strip()
+        or DEFAULT_DERIV_ENDPOINT
+    )
 
     if not app_id and not api_token:
         if require_complete:

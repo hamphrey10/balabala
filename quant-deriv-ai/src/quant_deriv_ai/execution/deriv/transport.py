@@ -34,6 +34,8 @@ class WebsocketTransport:
         self._lock = threading.RLock()
 
     def open(self, url: str) -> None:
+        # Always drop any prior socket first — reconnect must not leak sessions.
+        self.close()
         try:
             from websockets.sync.client import connect
         except ImportError as exc:
@@ -43,7 +45,10 @@ class WebsocketTransport:
             )
             raise DerivConnectionError(msg) from exc
         try:
-            self._ws = connect(url, open_timeout=self._timeout_s, close_timeout=self._timeout_s)
+            with self._lock:
+                self._ws = connect(
+                    url, open_timeout=self._timeout_s, close_timeout=self._timeout_s
+                )
         except Exception as exc:  # noqa: BLE001
             msg = f"Deriv WebSocket open failed: {exc}"
             raise DerivConnectionError(msg) from exc

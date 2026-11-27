@@ -16,11 +16,15 @@ class FakeTransport:
     def __init__(self, *, is_virtual: int = 1) -> None:
         self.is_virtual = is_virtual
         self.opened: str | None = None
+        self.open_count = 0
+        self.close_count = 0
         self.closed = False
         self.requests: list[dict[str, Any]] = []
 
     def open(self, url: str) -> None:
         self.opened = url
+        self.open_count += 1
+        self.closed = False
 
     def request(self, payload: dict[str, Any]) -> dict[str, Any]:
         self.requests.append(dict(payload))
@@ -53,6 +57,7 @@ class FakeTransport:
         return {"echo_req": payload}
 
     def close(self) -> None:
+        self.close_count += 1
         self.closed = True
 
 
@@ -117,3 +122,17 @@ def test_no_order_methods_exposed() -> None:
     assert "buy" not in methods
     assert "sell" not in methods
     assert "connect" in methods
+
+
+@pytest.mark.unit
+def test_reconnect_closes_prior_session() -> None:
+    """Second connect() must close the prior transport session (Bugbot)."""
+    transport = FakeTransport(is_virtual=1)
+    client = DerivClient(transport=transport)
+    client.connect(_creds())
+    assert transport.open_count == 1
+    client.connect(_creds())
+    assert transport.open_count == 2
+    # connect() calls _safe_close_unlocked before each open
+    assert transport.close_count >= 1
+    assert client.state.value == "connected"
