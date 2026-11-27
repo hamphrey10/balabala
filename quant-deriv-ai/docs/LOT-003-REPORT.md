@@ -20,6 +20,7 @@ Fixed all six review findings before merge:
 6. Tick dedupe uses full quote identity (same-second ticks preserved)
 7. D1 weekend/holiday gaps (3–4d) treated as session breaks, not missing
 8. Full tick pages re-fetch the boundary second before advancing (+1s)
+9. Boundary/range refill uses end-of-second (…999ms), not from==to
 
 ---
 

@@ -270,6 +270,18 @@ def test_same_second_ticks_preserved(tmp_path: Path) -> None:
     assert len(stored) == 3
 
 
+def test_end_of_second_range_covers_full_second() -> None:
+    """from==to at .000 must not be used; end-of-second ms bound covers the second."""
+    from quant_deriv_ai.market_data.collector import _end_of_second
+
+    start = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
+    assert _end_of_second(start) == start + timedelta(milliseconds=999)
+    # Simulate ms-inclusive filter used by MT5-like sources.
+    tick_end = start + timedelta(milliseconds=999)
+    assert not (start <= start and tick_end <= start)  # from==to drops the second
+    assert start <= start and tick_end <= _end_of_second(start)
+
+
 def test_tick_pagination_keeps_boundary_second(tmp_path: Path) -> None:
     """Full page ending mid-second must not drop remaining ticks in that second."""
 
@@ -296,15 +308,31 @@ def test_tick_pagination_keeps_boundary_second(tmp_path: Path) -> None:
             *,
             flags: int | None = None,
         ) -> list[TickData]:
+            """Millisecond-inclusive range (no special-case for from==to)."""
             _ = flags
             start = date_from.astimezone(UTC) if date_from.tzinfo else date_from.replace(tzinfo=UTC)
             end = date_to.astimezone(UTC) if date_to.tzinfo else date_to.replace(tzinfo=UTC)
-            matched = [t for t in self.all_ticks if start <= t.time <= end and t.symbol == symbol]
-            # Same-second window: return full second (boundary refill path).
-            if start == end:
-                return matched
-            # Multi-second window: simulate MT5 page truncation.
-            return matched[: self._page_size]
+            # Compare with ms resolution so from==to (same second, 0µs) would miss
+            # later ticks — callers must pass end-of-second (…999ms) to cover them.
+            matched: list[TickData] = []
+            for t in self.all_ticks:
+                if t.symbol != symbol:
+                    continue
+                # Model each stored tick as occurring at second.000; a from==to at
+                # second.000 excludes nothing extra here, but end=second+999ms includes
+                # the whole second while end=second.000 still matches .000 ticks.
+                # To expose from==to bugs, treat ticks as spanning the second: include
+                # only when start <= tick_time and tick_time_end <= end, with
+                # tick_time_end = tick.time + 999ms (last ms of that second).
+                tick_start = t.time
+                tick_end = t.time + timedelta(milliseconds=999)
+                if start <= tick_start and tick_end <= end:
+                    matched.append(t)
+            # Multi-second (wide) windows: simulate MT5 page truncation.
+            span = end - start
+            if span >= timedelta(seconds=1):
+                return matched[: self._page_size]
+            return matched
 
         def copy_ticks_from(
             self,

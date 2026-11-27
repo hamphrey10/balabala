@@ -146,14 +146,18 @@ class MarketDataCollector:
         chunks: list[pd.DataFrame] = []
         cursor = date_from
         end = date_to
-        end_ts = pd.Timestamp(end)
+        # Second-resolution filter bound (user window).
+        end_second = _as_utc(end).replace(microsecond=0)
+        end_ts = pd.Timestamp(end_second)
+        # MT5 range end must cover the last ms of the final second.
+        api_end = _end_of_second(end_second)
         pages = 0
         use_range = hasattr(self._source, "copy_ticks_range")
         # Allow from == to (same-second windows with multiple ticks).
-        while cursor <= end:
+        while cursor <= end_second:
             pages += 1
             if use_range:
-                batch = self._source.copy_ticks_range(symbol, cursor, end)
+                batch = self._source.copy_ticks_range(symbol, cursor, api_end)
             else:
                 batch = self._source.copy_ticks_from(symbol, cursor, _TICK_PAGE_SIZE)
             if not batch:
@@ -172,14 +176,14 @@ class MarketDataCollector:
                 break
 
             # Full page may have truncated mid-second. Re-fetch that second fully
-            # (from its start) and merge before advancing past it.
+            # (full ms span) and merge before advancing past it.
             boundary = self._fetch_ticks_for_second(symbol, last_time, use_range=use_range)
             if not boundary.empty:
                 boundary = boundary.loc[boundary["time"] <= end_ts].reset_index(drop=True)
                 if not boundary.empty:
                     chunks.append(boundary)
 
-            next_cursor = last_time + timedelta(seconds=1)
+            next_cursor = last_time.replace(microsecond=0) + timedelta(seconds=1)
             if next_cursor <= cursor:
                 break
             cursor = next_cursor
@@ -202,23 +206,30 @@ class MarketDataCollector:
         *,
         use_range: bool,
     ) -> pd.DataFrame:
-        """Fetch all ticks starting at ``second`` (second-resolution MT5 window)."""
-        second = _as_utc(second)
+        """Fetch all ticks belonging to ``second`` (full wall-clock second).
+
+        MT5 ``copy_ticks_range`` bounds are millisecond-inclusive. A from==to
+        call at second resolution can miss later milliseconds in that second, so
+        we request ``[second, second + 1s - 1ms]`` (or ``copy_ticks_from``).
+        """
+        second_start = _as_utc(second).replace(microsecond=0)
+        second_end = _end_of_second(second_start)
         if use_range:
-            batch = self._source.copy_ticks_range(symbol, second, second)
+            batch = self._source.copy_ticks_range(symbol, second_start, second_end)
         else:
-            batch = self._source.copy_ticks_from(symbol, second, _TICK_PAGE_SIZE)
+            batch = self._source.copy_ticks_from(symbol, second_start, _TICK_PAGE_SIZE)
         if not batch:
             return ticks_to_frame([])
         frame = ticks_to_frame(batch)
         if frame.empty:
             return frame
-        target = pd.Timestamp(second)
+        # Keep only ticks whose second-resolution timestamp matches the boundary.
+        target = pd.Timestamp(second_start)
         frame = frame.loc[frame["time"] == target].reset_index(drop=True)
         if len(batch) >= _TICK_PAGE_SIZE:
             log.warning(
                 "tick second {} may exceed page size {} — API truncated",
-                second.isoformat(),
+                second_start.isoformat(),
                 _TICK_PAGE_SIZE,
             )
         return frame
@@ -228,3 +239,9 @@ def _as_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
+
+def _end_of_second(value: datetime) -> datetime:
+    """Last millisecond of the wall-clock second containing ``value`` (UTC)."""
+    start = _as_utc(value).replace(microsecond=0)
+    return start + timedelta(seconds=1) - timedelta(milliseconds=1)
