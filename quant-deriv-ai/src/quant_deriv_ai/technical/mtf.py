@@ -20,10 +20,15 @@ def analyze_mtf(
     frames: Mapping[str, pd.DataFrame],
     *,
     rsi_period: int = 14,
+    sma_fast: int = 20,
+    sma_slow: int = 50,
+    swing_left: int = 2,
+    swing_right: int = 2,
 ) -> MTFConsensus:
     """Build MTF consensus from a mapping of timeframe → OHLCV frame.
 
     Each timeframe is analyzed independently (no resampling look-ahead across TFs).
+    Trend parameters mirror the primary engine settings.
     """
     views: list[MTFTimeframeView] = []
     for tf in sorted(frames.keys()):
@@ -37,7 +42,13 @@ def analyze_mtf(
                 )
             )
             continue
-        trend = classify_trend(frame)
+        trend = classify_trend(
+            frame,
+            fast=sma_fast,
+            slow=sma_slow,
+            swing_left=swing_left,
+            swing_right=swing_right,
+        )
         close = frame["close"].astype(float)
         rsi_s = rsi(close, rsi_period)
         rsi_v = float(rsi_s.dropna().iloc[-1]) if not rsi_s.dropna().empty else None

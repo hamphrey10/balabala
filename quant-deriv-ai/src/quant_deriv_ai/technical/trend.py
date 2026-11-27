@@ -39,8 +39,19 @@ def classify_trend(
     direction = TrendDirection.UNKNOWN
     strength = 0.0
 
-    ma_up = fast_v is not None and slow_v is not None and fast_v > slow_v
-    ma_down = fast_v is not None and slow_v is not None and fast_v < slow_v
+    # Insufficient history for SMA → remain UNKNOWN (not a fake sideways).
+    if fast_v is None or slow_v is None:
+        return TrendState(
+            direction=TrendDirection.UNKNOWN,
+            strength=0.0,
+            adx=adx_v,
+            sma_fast=fast_v,
+            sma_slow=slow_v,
+            structure_bias=bias,
+        )
+
+    ma_up = fast_v > slow_v
+    ma_down = fast_v < slow_v
     strong = adx_v is not None and adx_v >= adx_trend_threshold
 
     if ma_up and (plus_di is None or minus_di is None or plus_di >= minus_di):
@@ -50,6 +61,7 @@ def classify_trend(
     elif ma_up or ma_down:
         direction = TrendDirection.UP if ma_up else TrendDirection.DOWN
     else:
+        # Equal SMAs → range / sideways.
         direction = TrendDirection.SIDEWAYS
 
     if strong and direction in (TrendDirection.UP, TrendDirection.DOWN):

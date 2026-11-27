@@ -150,7 +150,8 @@ def adx(
         minus_dm.ewm(alpha=1.0 / period, adjust=False, min_periods=period).mean() / atr_s
     )
     di_sum = (plus_di + minus_di).replace(0.0, np.nan)
-    dx = (100.0 * (plus_di - minus_di).abs() / di_sum).fillna(0.0)
+    # Keep warmup NaNs — do not seed Wilder ADX with zeros.
+    dx = 100.0 * (plus_di - minus_di).abs() / di_sum
     adx_s = dx.ewm(alpha=1.0 / period, adjust=False, min_periods=period).mean()
     return pd.DataFrame(
         {"adx": adx_s, "plus_di": plus_di, "minus_di": minus_di},
@@ -322,32 +323,33 @@ def compute_from_ohlc(
     from quant_deriv_ai.indicators.registry import get_indicator
 
     spec = get_indicator(name)
+    key = spec.name  # normalized (strip + lower) via get_indicator
     p: dict[str, Any] = dict(params or {})
     require_columns(frame, ("open", "high", "low", "close"))
     close = frame["close"]
     high = frame["high"]
     low = frame["low"]
 
-    if name == "sma":
+    if key == "sma":
         return sma(close, _param_int(p, "period", 20))
-    if name == "ema":
+    if key == "ema":
         return ema(close, _param_int(p, "period", 20))
-    if name == "rsi":
+    if key == "rsi":
         return rsi(close, _param_int(p, "period", 14))
-    if name == "macd":
+    if key == "macd":
         return macd(
             close,
             fast=_param_int(p, "fast", 12),
             slow=_param_int(p, "slow", 26),
             signal=_param_int(p, "signal", 9),
         )
-    if name == "atr":
+    if key == "atr":
         return atr(high, low, close, _param_int(p, "period", 14))
-    if name == "adx":
+    if key == "adx":
         return adx(high, low, close, _param_int(p, "period", 14))
-    if name == "bollinger":
+    if key == "bollinger":
         return bollinger(close, _param_int(p, "period", 20), _param_float(p, "num_std", 2.0))
-    if name == "stochastic":
+    if key == "stochastic":
         return stochastic(
             high,
             low,
@@ -355,17 +357,17 @@ def compute_from_ohlc(
             k_period=_param_int(p, "k_period", 14),
             d_period=_param_int(p, "d_period", 3),
         )
-    if name == "donchian":
+    if key == "donchian":
         return donchian(high, low, _param_int(p, "period", 20))
-    if name == "roc":
+    if key == "roc":
         return roc(close, _param_int(p, "period", 12))
-    if name == "momentum":
+    if key == "momentum":
         return momentum(close, _param_int(p, "period", 10))
-    if name == "cci":
+    if key == "cci":
         return cci(high, low, close, _param_int(p, "period", 20))
-    if name == "williams_r":
+    if key == "williams_r":
         return williams_r(high, low, close, _param_int(p, "period", 14))
-    if name == "hist_vol":
+    if key == "hist_vol":
         return historical_volatility(
             close,
             _param_int(p, "period", 20),

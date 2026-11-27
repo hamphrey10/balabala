@@ -99,11 +99,12 @@ class TechnicalAnalysisEngine:
         """Return a DataFrame of indicator columns aligned to ``frame`` index."""
         self._require_ohlc(frame)
         selected = list(names) if names is not None else list(DEFAULT_INDICATORS)
-        param_map = {k: dict(v) for k, v in (params or {}).items()}
+        param_map = {str(k).strip().lower(): dict(v) for k, v in (params or {}).items()}
         parts: list[pd.Series | pd.DataFrame] = []
         for name in selected:
-            validate_indicator(name, param_map.get(name))
-            result = compute_from_ohlc(frame, name, params=param_map.get(name))
+            key = str(name).strip().lower()
+            validate_indicator(key, param_map.get(key))
+            result = compute_from_ohlc(frame, key, params=param_map.get(key))
             parts.append(result)
         if not parts:
             return pd.DataFrame(index=frame.index)
@@ -169,7 +170,17 @@ class TechnicalAnalysisEngine:
             note=_volume_note(volume_present, self.volume_is_synthetic),
         )
 
-        mtf = analyze_mtf(mtf_frames) if mtf_frames else None
+        mtf = (
+            analyze_mtf(
+                mtf_frames,
+                sma_fast=self.sma_fast,
+                sma_slow=self.sma_slow,
+                swing_left=self.swing_left,
+                swing_right=self.swing_right,
+            )
+            if mtf_frames
+            else None
+        )
         ind_names = (
             list(indicators) if indicators is not None else list(DEFAULT_INDICATORS)
         )

@@ -7,8 +7,10 @@ import pandas as pd
 import pytest
 
 from quant_deriv_ai.indicators.core import (
+    adx,
     atr,
     bollinger,
+    compute_from_ohlc,
     donchian,
     ema,
     historical_volatility,
@@ -144,3 +146,19 @@ def test_prefix_stability_no_lookahead(ohlc: pd.DataFrame) -> None:
         rtol=1e-12,
         atol=1e-12,
     )
+
+
+def test_compute_from_ohlc_normalizes_case(ohlc: pd.DataFrame) -> None:
+    """Registry-normalized names (RSI) must dispatch the same as rsi."""
+    lower = compute_from_ohlc(ohlc, "rsi", params={"period": 14})
+    upper = compute_from_ohlc(ohlc, "RSI", params={"period": 14})
+    np.testing.assert_allclose(lower.to_numpy(), upper.to_numpy(), equal_nan=True)
+
+
+def test_adx_warmup_keeps_nans(ohlc: pd.DataFrame) -> None:
+    """Wilder ADX must not seed early bars with zeros from fillna."""
+    period = 14
+    out = adx(ohlc["high"], ohlc["low"], ohlc["close"], period)
+    # First (period - 1) bars lack enough ATR/DI history → ADX should be NaN.
+    assert out["adx"].iloc[: period - 1].isna().all()
+    assert not out["adx"].dropna().empty

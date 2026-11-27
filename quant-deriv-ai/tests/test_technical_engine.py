@@ -14,7 +14,9 @@ from quant_deriv_ai.persistence.store import MarketDataStore
 from quant_deriv_ai.technical.agent import TechnicalAnalysisAgent
 from quant_deriv_ai.technical.engine import TechnicalAnalysisEngine
 from quant_deriv_ai.technical.models import BreakoutSide, TrendDirection, VolumeCaveat
+from quant_deriv_ai.technical.mtf import analyze_mtf
 from quant_deriv_ai.technical.structure import detect_swings, support_resistance_from_swings
+from quant_deriv_ai.technical.trend import classify_trend
 from tests.conftest_ta import make_ohlc
 
 
@@ -117,3 +119,50 @@ def test_engine_rejects_missing_ohlc() -> None:
     engine = TechnicalAnalysisEngine()
     with pytest.raises(Exception, match="OHLC"):
         engine.analyze(pd.DataFrame({"close": [1.0, 2.0]}), symbol="X", timeframe="M1")
+
+
+def test_short_series_trend_is_unknown() -> None:
+    """Insufficient SMA history must stay UNKNOWN, not SIDEWAYS."""
+    n = 10  # less than default slow SMA(50)
+    close = pd.Series([100.0 + i * 0.1 for i in range(n)])
+    frame = pd.DataFrame(
+        {
+            "open": close,
+            "high": close + 0.2,
+            "low": close - 0.2,
+            "close": close,
+        }
+    )
+    state = classify_trend(frame, fast=20, slow=50)
+    assert state.direction is TrendDirection.UNKNOWN
+    assert state.strength == 0.0
+
+
+def test_engine_uppercase_indicator_name(frame: pd.DataFrame) -> None:
+    engine = TechnicalAnalysisEngine()
+    snap = engine.analyze(
+        frame,
+        symbol="CASE",
+        timeframe="H1",
+        indicators=["RSI", "SMA"],
+    )
+    assert any(k.startswith("rsi") for k in snap.indicators)
+    assert any(k.startswith("sma") for k in snap.indicators)
+
+
+def test_mtf_uses_engine_trend_params(frame: pd.DataFrame) -> None:
+    """MTF classify_trend must honor engine SMA / swing settings."""
+    engine = TechnicalAnalysisEngine(sma_fast=5, sma_slow=10, swing_left=1, swing_right=1)
+    mtf_frames = {"H1": frame, "H4": frame.iloc[::4].reset_index(drop=True)}
+    snap = engine.analyze(frame, symbol="MTF", timeframe="H1", mtf_frames=mtf_frames)
+    assert snap.mtf is not None
+    # Direct call with matching params should be consistent with engine path.
+    direct = analyze_mtf(
+        mtf_frames,
+        sma_fast=5,
+        sma_slow=10,
+        swing_left=1,
+        swing_right=1,
+    )
+    assert snap.mtf.dominant_trend == direct.dominant_trend
+    assert [v.trend for v in snap.mtf.views] == [v.trend for v in direct.views]
