@@ -54,8 +54,9 @@ Les instruments doivent être **découverts dynamiquement**. Ne jamais assumer l
 | `docs/LOT-001-REPORT.md` | Rapport LOT-001 (fondation Python) |
 | `docs/LOT-002-REPORT.md` | Rapport LOT-002 (connecteur MT5 DEMO lecture seule) |
 | `docs/LOT-003-REPORT.md` | Rapport LOT-003 (Market Data Engine) |
+| `docs/LOT-004-REPORT.md` | Rapport LOT-004 (Technical Analysis Agent) |
 
-## Package Python (LOT-001 + LOT-002 + LOT-003)
+## Package Python (LOT-001 … LOT-004)
 
 Racine runtime : ce répertoire (`pyproject.toml`, `src/`, `tests/`, `config/`).
 
@@ -101,12 +102,19 @@ quant data update -s EURUSD -t M1
 quant data validate -s EURUSD -k candles -t M1
 quant data inspect -s EURUSD -k candles -t M1
 quant data stats
+
+# LOT-004 — technical analysis (local candles; no orders)
+quant indicators list
+quant indicators validate rsi --param period=14
+quant analyze technical -s EURUSD -t H1 --mtf H4 --mtf D1
 ```
 
 Credentials via `.env` (`MT5_LOGIN` / `MT5_PASSWORD` / `MT5_SERVER` / optionnel `MT5_PATH`). Ne jamais committer de secrets. Les comptes live/réels sont rejetés et verrouillés par le connecteur. **Aucun placement d'ordre.**
 
 Données locales sous `data/` (gitignoré) : Parquet + DuckDB + `metadata.sqlite`. Timeframes : M1, M5, M15, M30, H1, H4, D1. Pas de fabrication silencieuse de barres manquantes.
 
-## État actuel (LOT-001 + LOT-002 + LOT-003)
+Analyse technique (LOT-004) : indicateurs vectorisés + structure/tendance/breakouts/MTF → `TechnicalSnapshot`. Volumes synthétiques non assumés réels.
 
-Fondation documentaire (LOT-000), scaffold Python (LOT-001), connecteur MT5 DEMO lecture seule (LOT-002), Market Data Engine (LOT-003). **Aucune stratégie de trading n'est implémentée.** Aucun ordre placé. Voir `ROADMAP.md` pour la suite.
+## État actuel (LOT-001 … LOT-004)
+
+Fondation documentaire (LOT-000), scaffold Python (LOT-001), connecteur MT5 DEMO lecture seule (LOT-002), Market Data Engine (LOT-003), Technical Analysis Agent (LOT-004). **Aucune stratégie de trading n'est implémentée.** Aucun ordre placé. Voir `ROADMAP.md` pour la suite.

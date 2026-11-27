@@ -45,6 +45,16 @@ Contrôles obligatoires (exécutés réellement) :
 4. CLI `quant data --help` expose download|update|validate|inspect|stats
 5. Aucune fabrication silencieuse (`allow_reconstruction=false` ; reconstruction flaguée si activée)
 
+## LOT-004 — Technical Analysis Agent
+
+Contrôles obligatoires (exécutés réellement) :
+
+1. Pytest : indicateurs vs références indépendantes ; anti look-ahead (préfixe / mutation futur) ; engine snapshot ; registry ; CLI
+2. Ruff + MyPy sur le package
+3. CLI `quant analyze technical` et `quant indicators list|validate`
+4. Volumes synthétiques non assumés réels (`volume_is_synthetic=true` par défaut)
+5. Aucun API d'ordre / aucune stratégie de trading
+
 ## Lots futurs
 
 Dès qu'il y a du code :

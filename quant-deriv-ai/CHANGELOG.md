@@ -2,6 +2,22 @@
 
 Format : entrées par lot, du plus récent au plus ancien. Pas de métriques de performance inventées.
 
+## [LOT-004] — Technical Analysis Agent
+
+### Ajouté
+
+- Package `indicators/` : SMA, EMA, RSI, MACD, ATR, ADX, Bollinger, Stochastic, Donchian, ROC, Momentum, CCI, Williams %R, hist_vol (vectorisé, causal)
+- Package `technical/` : engine, agent, structure (swings / S/R), trend, breakouts, MTF, `TechnicalSnapshot`
+- CLI `quant analyze technical` et `quant indicators list|validate`
+- Config `technical:` (volume synthétique par défaut, swings, breakout lookback, SMA fast/slow)
+- Tests vs références indépendantes + gardes anti look-ahead
+- Rapport : `docs/LOT-004-REPORT.md`
+
+### Notes
+
+- Aucun ordre ; DEMO-only ; pas de secrets.
+- Volumes / tick volumes **non** traités comme liquidité réelle par défaut.
+
 ## [LOT-003] — Market Data Engine
 
 ### Ajouté

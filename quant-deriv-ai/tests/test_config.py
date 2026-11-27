@@ -21,6 +21,9 @@ def test_load_default_config() -> None:
     assert cfg.data.root == "data"
     assert "M1" in cfg.data.default_timeframes
     assert cfg.data.allow_reconstruction is False
+    assert cfg.technical.volume_is_synthetic is True
+    assert cfg.technical.sma_fast == 20
+    assert cfg.technical.sma_slow == 50
 
 
 def test_validate_trading_mode_demo() -> None:
