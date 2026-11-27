@@ -86,6 +86,20 @@ class DataSettings(BaseModel):
     allow_reconstruction: bool = False
 
 
+class TechnicalSettings(BaseModel):
+    """Technical analysis defaults (LOT-004)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Deriv synthetic / tick volumes must not be assumed real by default.
+    volume_is_synthetic: bool = True
+    swing_left: int = Field(default=2, ge=1, le=20)
+    swing_right: int = Field(default=2, ge=1, le=20)
+    breakout_lookback: int = Field(default=20, ge=2, le=500)
+    sma_fast: int = Field(default=20, ge=2, le=500)
+    sma_slow: int = Field(default=50, ge=2, le=1000)
+
+
 class QuantConfig(BaseModel):
     """Root configuration document."""
 
@@ -96,6 +110,7 @@ class QuantConfig(BaseModel):
     risk: RiskSettings = Field(default_factory=RiskSettings)
     mt5: Mt5Settings = Field(default_factory=Mt5Settings)
     data: DataSettings = Field(default_factory=DataSettings)
+    technical: TechnicalSettings = Field(default_factory=TechnicalSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
 

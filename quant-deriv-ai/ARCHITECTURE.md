@@ -105,6 +105,18 @@
 | LOT-001 | Scaffold Python, config, CLI de base |
 | LOT-002 | Connecteur MT5 DEMO lecture seule |
 | LOT-003 | Market Data Engine (Parquet / DuckDB / SQLite) |
+| LOT-004 | Technical Analysis Agent (indicateurs + structure + MTF) |
+
+### Technical Analysis Agent (LOT-004)
+
+- **Indicateurs vectorisés** : SMA, EMA, RSI, MACD, ATR, ADX, Bollinger, Stochastic, Donchian, ROC, Momentum, CCI, Williams %R, historical volatility
+- **Interfaces standardisées** : registre `IndicatorSpec` + `compute_from_ohlc` ; pas de look-ahead (fenêtres causales ; NaN en warmup)
+- **Structure de marché** : swings, support/résistance, biais HH/HL vs LH/LL
+- **Tendance / breakouts / MTF** : classification MA+ADX+structure ; Donchian breakout (niveau prior) ; consensus multi-timeframes
+- **TechnicalSnapshot** : contrat Pydantic unique pour CLI / agents
+- **Volumes** : synthétiques / tick volumes **non** traités comme liquidité réelle par défaut
+- **CLI** : `quant analyze technical` ; `quant indicators list|validate`
+- **Frontière** : couche Research / analyse uniquement — **aucun ordre**
 
 ### Market Data Engine (LOT-003)
 

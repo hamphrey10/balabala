@@ -9,8 +9,10 @@ from rich.console import Console
 from rich.table import Table
 
 from quant_deriv_ai import __version__
+from quant_deriv_ai.cli.analyze_cmds import analyze_app
 from quant_deriv_ai.cli.data_cmds import data_app
 from quant_deriv_ai.cli.doctor import doctor_passed, run_doctor
+from quant_deriv_ai.cli.indicators_cmds import indicators_app
 from quant_deriv_ai.cli.mt5_cmds import mt5_app
 from quant_deriv_ai.config.settings import load_config
 from quant_deriv_ai.core.exceptions import ConfigError, QuantDerivError
@@ -28,6 +30,8 @@ config_app = typer.Typer(help="Configuration commands")
 app.add_typer(config_app, name="config")
 app.add_typer(mt5_app, name="mt5")
 app.add_typer(data_app, name="data")
+app.add_typer(analyze_app, name="analyze")
+app.add_typer(indicators_app, name="indicators")
 
 console = Console()
 err_console = Console(stderr=True)

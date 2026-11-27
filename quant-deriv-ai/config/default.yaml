@@ -48,6 +48,16 @@ data:
   # Controlled reconstruction is OFF by default — missing bars stay missing.
   allow_reconstruction: false
 
+technical:
+  # LOT-004 — Technical Analysis Agent defaults (no orders).
+  # Synthetic / tick volumes must not be treated as real liquidity.
+  volume_is_synthetic: true
+  swing_left: 2
+  swing_right: 2
+  breakout_lookback: 20
+  sma_fast: 20
+  sma_slow: 50
+
 logging:
   structured: true
   serialize: false
