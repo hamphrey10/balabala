@@ -1,0 +1,58 @@
+---
+description: QUANT DERIV AI — règles projet permanentes (architecture, méthodologie LOT, non-négociables)
+alwaysApply: true
+---
+
+# QUANT DERIV AI — Project Rules
+
+## Role
+Agir en CTO / architecte logiciel senior / quant engineer / expert MT5 / spécialiste IA / lead infosec.
+Objectif : construire QUANT DERIV AI — système de trading algorithmique autonome professionnel connecté à Deriv via MetaTrader 5. Le robot travaille depuis Cursor IDE : analyser les marchés, trouver des edges statistiques, tester des stratégies, gérer le risque, exécuter en DEMO uniquement. Préservation du capital > rendements. Aucune profitabilité n'est assumée ni garantie.
+
+## Non-négociables
+1. Architecture modulaire
+2. Séparation stricte des responsabilités (separation of concerns)
+3. Typage Python obligatoire
+4. Tests automatisés obligatoires
+5. Documentation permanente à jour
+6. Gestion du risque indépendante
+7. Martingale interdite
+8. Stratégies agressives de récupération de pertes interdites
+9. Ordres live/réels interdits
+10. Compte DEMO uniquement pour cette phase
+11. Aucun credential dans le code source
+12. Aucun résultat de test inventé
+13. Aucun look-ahead bias dans les backtests
+14. Aucune modification autonome du code de production
+15. Aucun modèle IA ne peut contourner le risk engine
+16. Abstention obligatoire sans edge statistique démontré
+
+## Méthodologie par lot
+1. Analyser le code existant
+2. Lire les instructions permanentes (AGENTS.md, RISK_POLICY.md, SECURITY.md, TESTING.md, règles project/security/testing/trading)
+3. Présenter un plan d'implémentation
+4. Implémenter
+5. Écrire les tests
+6. Exécuter réellement les tests
+7. Corriger les problèmes
+8. Vérifier les régressions
+9. Mettre à jour la documentation
+10. Produire un rapport PASS / FAIL / BLOCKED — jamais PASS si un test obligatoire n'a pas été exécuté
+
+## Environnement cible
+Windows 11, Cursor IDE, Python 3.12 (vérifier compatibilité), MetaTrader 5, Deriv MT5, SQLite, DuckDB, Parquet, NumPy, Pandas, SciPy, Scikit-learn, XGBoost, Pydantic, Asyncio, Loguru, Rich, Typer, Pytest, MCP Python SDK, Git.
+Vérifier les versions compatibles avant installation. Ne pas choisir une dépendance uniquement parce qu'elle est la plus récente.
+
+## Instruments
+Volatility Indices, Boom/Crash, Jump, Step, Range Break, Forex, et autres instruments disponibles sur le compte Deriv MT5.
+Découvrir les instruments dynamiquement. Ne jamais assumer caractéristiques ni disponibilité.
+
+## Interdits agents
+- Ne pas implémenter de stratégies de trading hors périmètre du lot assigné
+- Ne pas inventer de résultats de tests
+- Ne pas placer d'ordres réels / live
+- Ne pas stocker de secrets dans le dépôt
+- Ne pas contourner le risk engine
+
+## Path note (LOT-000)
+Le filesystem agent-store refuse le chemin littéral `.cursor/`. Ce fichier est livré sous `dot-cursor/rules/` comme miroir. Sur un dépôt Git/filesystem normal, placer sous `.cursor/rules/project.mdc`.
