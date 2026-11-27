@@ -14,7 +14,8 @@ globs:
 
 ## Phase actuelle
 - DEMO account only. Live/real orders forbidden.
-- LOT-000 : ne pas implémenter de stratégies de trading.
+- LOT-006 : stratégies = hypothèses expérimentales uniquement (signaux candidats).
+- Pas d'auto-activation live (`auto_activate=false`). Pas d'ordres depuis la couche strategy.
 
 ## Risk engine
 - Indépendant et obligatoire avant toute exécution.

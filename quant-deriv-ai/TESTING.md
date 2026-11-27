@@ -65,6 +65,16 @@ Contrôles obligatoires (exécutés réellement) :
 4. Rapports Markdown/JSON sans métriques inventées
 5. Aucun API d'ordre / probes ≠ stratégies de trading
 
+## LOT-006 — Strategy Engine
+
+Contrôles obligatoires (exécutés réellement) :
+
+1. Pytest : 12 hypothèses enregistrées ; signaux BUY/SELL/HOLD/EXIT ; anti look-ahead (préfixe / mutation futur) ; CLI strategy ; safety flags
+2. Ruff + MyPy sur le package
+3. CLI `quant strategy list|inspect|validate`
+4. Aucune auto-activation live (`auto_activate=false`, `live_allowed=false`)
+5. Aucun API d'ordre ; `edge_demonstrated=false` pour toutes les hypothèses
+
 ## Lots futurs
 
 Dès qu'il y a du code :

@@ -27,11 +27,12 @@ Ordre logique suggéré — à affiner lot par lot selon l'état réel du code :
 3. **Market data** — découverte dynamique des instruments ; ingestion ; stockage SQLite / DuckDB / Parquet ✅ LOT-003
 4. **Technical analysis** — indicateurs vectorisés, structure, tendance, breakouts, MTF, `TechnicalSnapshot` ✅ LOT-004
 5. **Research toolkit** — stats lab, garde-fous anti *look-ahead bias*, métriques d'edge, rapports ✅ LOT-005
-6. **Observabilité de base** — Loguru, audit trail minimal des décisions
-7. **Risk engine** — politiques de `RISK_POLICY.md` en code ; indépendance ; non-bypass IA
-8. **Couche exécution DEMO** — passage obligatoire par le risk engine ; pas d'ordres réels
-9. **Stratégies (lots dédiés)** — une stratégie à la fois ; enregistrement dans `STRATEGY_REGISTRY.md` ; tests réels ; abstention sans edge
-10. **Gouvernance modèles** — gates d'`MODEL_GOVERNANCE.md` ; évaluation avant promotion
-11. **MCP / Cursor tooling** — outils agent pour orchestrer recherche, risque, exécution DEMO
+6. **Strategy Engine** — 12 hypothèses expérimentales, registry, signaux BUY/SELL/HOLD/EXIT ; pas d'activation live ✅ LOT-006
+7. **Observabilité de base** — Loguru, audit trail minimal des décisions
+8. **Risk engine** — politiques de `RISK_POLICY.md` en code ; indépendance ; non-bypass IA
+9. **Couche exécution DEMO** — passage obligatoire par le risk engine ; pas d'ordres réels
+10. **Stratégies (promotion)** — une stratégie à la fois hors hypothèse ; preuves d'edge ; tests réels ; abstention sans edge
+11. **Gouvernance modèles** — gates d'`MODEL_GOVERNANCE.md` ; évaluation avant promotion
+12. **MCP / Cursor tooling** — outils agent pour orchestrer recherche, risque, exécution DEMO
 
 Chaque lot suit la méthodologie de `AGENTS.md` et produit un rapport PASS / FAIL / BLOCKED sans inventer de résultats.

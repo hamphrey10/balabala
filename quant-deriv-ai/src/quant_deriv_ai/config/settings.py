@@ -117,6 +117,33 @@ class QuantitativeSettings(BaseModel):
     return_method: str = "log"
 
 
+class StrategySettings(BaseModel):
+    """Strategy Engine defaults (LOT-006) — hypotheses only; no orders / no auto-activate."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    include_series: bool = False
+    # Hard safety — must remain false in this phase.
+    auto_activate: bool = False
+    live_allowed: bool = False
+
+    @field_validator("auto_activate")
+    @classmethod
+    def _forbid_auto(cls, value: bool) -> bool:
+        if value:
+            msg = "strategies.auto_activate=true is forbidden (LOT-006)"
+            raise TradingModeError(msg)
+        return False
+
+    @field_validator("live_allowed")
+    @classmethod
+    def _forbid_live_strategies(cls, value: bool) -> bool:
+        if value:
+            msg = "strategies.live_allowed=true is forbidden (LOT-006)"
+            raise TradingModeError(msg)
+        return False
+
+
 class QuantConfig(BaseModel):
     """Root configuration document."""
 
@@ -129,6 +156,7 @@ class QuantConfig(BaseModel):
     data: DataSettings = Field(default_factory=DataSettings)
     technical: TechnicalSettings = Field(default_factory=TechnicalSettings)
     quantitative: QuantitativeSettings = Field(default_factory=QuantitativeSettings)
+    strategies: StrategySettings = Field(default_factory=StrategySettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
 

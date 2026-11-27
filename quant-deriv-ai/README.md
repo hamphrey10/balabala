@@ -47,7 +47,7 @@ Les instruments doivent être **découverts dynamiquement**. Ne jamais assumer l
 | `SECURITY.md` | Secrets, DEMO-only, credentials |
 | `TESTING.md` | Tests réels, pas de résultats inventés, règle PASS |
 | `CHANGELOG.md` | Historique des lots |
-| `STRATEGY_REGISTRY.md` | Registre des stratégies (vide à LOT-000) |
+| `STRATEGY_REGISTRY.md` | Registre des stratégies (12 hypothèses LOT-006) |
 | `MODEL_GOVERNANCE.md` | Cycle de vie des modèles et gates d'évaluation |
 | `.cursor/rules/` | Règles Cursor (projet, sécurité, tests, trading) |
 | `docs/LOT-000-validation-report.md` | Rapport LOT-000 |
@@ -56,8 +56,9 @@ Les instruments doivent être **découverts dynamiquement**. Ne jamais assumer l
 | `docs/LOT-003-REPORT.md` | Rapport LOT-003 (Market Data Engine) |
 | `docs/LOT-004-REPORT.md` | Rapport LOT-004 (Technical Analysis Agent) |
 | `docs/LOT-005-REPORT.md` | Rapport LOT-005 (Quantitative Research Agent) |
+| `docs/LOT-006-REPORT.md` | Rapport LOT-006 (Strategy Engine) |
 
-## Package Python (LOT-001 … LOT-005)
+## Package Python (LOT-001 … LOT-006)
 
 Racine runtime : ce répertoire (`pyproject.toml`, `src/`, `tests/`, `config/`).
 
@@ -113,6 +114,11 @@ quant analyze technical -s EURUSD -t H1 --mtf H4 --mtf D1
 quant research stats -s EURUSD -t H1
 quant research edge -s EURUSD -t H1 --lag 1 --probe momentum_sign
 quant research report -s EURUSD -t H1 -o reports/EURUSD_H1.md
+
+# LOT-006 — strategy engine (hypotheses only; no orders; no auto live activation)
+quant strategy list
+quant strategy inspect STR-001
+quant strategy validate sma_crossover --param fast=10 --param slow=30
 ```
 
 Credentials via `.env` (`MT5_LOGIN` / `MT5_PASSWORD` / `MT5_SERVER` / optionnel `MT5_PATH`). Ne jamais committer de secrets. Les comptes live/réels sont rejetés et verrouillés par le connecteur. **Aucun placement d'ordre.**
@@ -123,6 +129,8 @@ Analyse technique (LOT-004) : indicateurs vectorisés + structure/tendance/break
 
 Recherche quantitative (LOT-005) : stats lab + probes d'edge causaux (`lag >= 1`) + `ResearchReport` Markdown/JSON. Les probes ne sont **pas** des stratégies.
 
-## État actuel (LOT-001 … LOT-005)
+Strategy Engine (LOT-006) : 12 hypothèses expérimentales (`STR-001`…`STR-012`), signaux `BUY`/`SELL`/`HOLD`/`EXIT`, registry + CLI. **Pas d'activation live automatique. Pas d'ordres. Pas d'edge démontré.**
 
-Fondation documentaire (LOT-000), scaffold Python (LOT-001), connecteur MT5 DEMO lecture seule (LOT-002), Market Data Engine (LOT-003), Technical Analysis Agent (LOT-004), Quantitative Research Agent (LOT-005). **Aucune stratégie de trading n'est implémentée.** Aucun ordre placé. Voir `ROADMAP.md` pour la suite.
+## État actuel (LOT-001 … LOT-006)
+
+Fondation documentaire (LOT-000), scaffold Python (LOT-001), connecteur MT5 DEMO lecture seule (LOT-002), Market Data Engine (LOT-003), Technical Analysis Agent (LOT-004), Quantitative Research Agent (LOT-005), Strategy Engine hypothèses (LOT-006). **Aucune stratégie n'est activée en live.** Aucun ordre placé. Voir `ROADMAP.md` pour la suite.

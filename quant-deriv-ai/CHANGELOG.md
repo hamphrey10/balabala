@@ -2,6 +2,24 @@
 
 Format : entrées par lot, du plus récent au plus ancien. Pas de métriques de performance inventées.
 
+## [LOT-006] — Strategy Engine
+
+### Ajouté
+
+- Package `strategies/` : models, base, catalog (12 hypothèses), registry, engine, agent
+- Signaux candidats `BUY` / `SELL` / `HOLD` / `EXIT`
+- CLI `quant strategy list|inspect|validate`
+- Config `strategies:` (`include_series`, `auto_activate=false`, `live_allowed=false`)
+- Mise à jour `STRATEGY_REGISTRY.md` (STR-001 … STR-012, status=hypothesis)
+- Tests registry / engine / CLI + gardes anti look-ahead
+- Rapport : `docs/LOT-006-REPORT.md`
+
+### Notes
+
+- Aucun ordre ; DEMO-only ; pas de secrets.
+- **Pas d'auto-activation live** ; `edge_demonstrated=false` pour toutes les entrées.
+- Hypothèses ≠ stratégies activées ; promotion hors périmètre LOT-006.
+
 ## [LOT-005] — Quantitative Research Agent
 
 ### Ajouté
