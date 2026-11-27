@@ -97,6 +97,26 @@
 | Observability | Journaliser et auditer | Altérer les décisions |
 | MCP/Cursor | Orchestrer lots et outils | Modifier prod hors process de lot |
 
-## État LOT-000
+## État runtime
 
-Seule la documentation et les règles Cursor existent. Aucun module runtime, aucune stratégie, aucun connecteur MT5 n'est livré dans ce lot.
+| Lot | Livré |
+| --- | --- |
+| LOT-000 | Documentation + règles Cursor |
+| LOT-001 | Scaffold Python, config, CLI de base |
+| LOT-002 | Connecteur MT5 DEMO lecture seule |
+| LOT-003 | Market Data Engine (Parquet / DuckDB / SQLite) |
+
+### Market Data Engine (LOT-003)
+
+- **Collecte** : ticks historiques + continus ; candles multi-instruments / multi-timeframes via le connecteur MT5
+- **Normalisation** : timestamps UTC ; schémas colonnes stables ; déduplication incrémentale
+- **Qualité** : détection missing / duplicate / outlier / freshness / OHLC ; jamais de fabrication silencieuse
+- **Reconstruction** : optionnelle, explicitement flaguée (`is_reconstructed`, `reconstruction_method`)
+- **Stockage** : Parquet (historique), DuckDB (vues d'analyse), SQLite (métadonnées + versions immuables)
+- **Versioning** : snapshots backtest immuables avec hash de contenu ; refus de mutation
+- **CLI** : `quant data download|update|validate|inspect|stats`
+- **Frontière** : couche Data uniquement — aucune décision d'ordre
+
+## État LOT-000 (historique)
+
+À LOT-000, seule la documentation et les règles Cursor existaient.

@@ -153,6 +153,16 @@ class FakeMT5:
             }
         ]
 
+    def copy_ticks_range(
+        self,
+        symbol: str,
+        date_from: datetime,
+        date_to: datetime,
+        flags: int,
+    ) -> list[dict[str, Any]]:
+        _ = date_to
+        return self.copy_ticks_from(symbol, date_from, 1, flags)
+
     def copy_rates_from_pos(
         self,
         symbol: str,

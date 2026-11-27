@@ -18,6 +18,10 @@ dependencies = [
     "typer>=0.12,<1",
     "rich>=13.7,<14",
     "loguru>=0.7,<1",
+    "numpy>=1.26,<3",
+    "pandas>=2.2,<3",
+    "pyarrow>=16,<20",
+    "duckdb>=1.0,<2",
 ]
 
 [project.optional-dependencies]
@@ -49,6 +53,7 @@ addopts = "-q --strict-markers"
 markers = [
     "integration: requires real MT5 DEMO terminal + credentials (skipped/BLOCKED otherwise)",
     "unit: pure unit tests with mocks",
+    "performance: lightweight performance / throughput checks",
 ]
 
 [tool.ruff]
@@ -68,4 +73,12 @@ mypy_path = "src"
 
 [[tool.mypy.overrides]]
 module = ["MetaTrader5.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["duckdb", "duckdb.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pandas", "pandas.*", "pyarrow", "pyarrow.*"]
 ignore_missing_imports = true

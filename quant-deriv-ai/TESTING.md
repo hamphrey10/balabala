@@ -35,6 +35,16 @@ Pour LOT-000 (fondation documentaire, **sans** stratégies) :
 
 Il n'y a pas de suite Pytest runtime à ce lot ; les contrôles sont des vérifications d'existence et de contenu. Les résultats doivent être factuels (ex. `ls` / lecture de fichiers), jamais inventés.
 
+## LOT-003 — Market Data Engine
+
+Contrôles obligatoires (exécutés réellement) :
+
+1. Pytest : qualité (missing/duplicate/outlier/freshness), intégrité (versions immuables), performance légère, engine mocké
+2. Intégration MT5 réelle : **BLOCKED** sans terminal Windows + credentials DEMO (skip honnête, jamais PASS inventé)
+3. Ruff + MyPy sur le package
+4. CLI `quant data --help` expose download|update|validate|inspect|stats
+5. Aucune fabrication silencieuse (`allow_reconstruction=false` ; reconstruction flaguée si activée)
+
 ## Lots futurs
 
 Dès qu'il y a du code :

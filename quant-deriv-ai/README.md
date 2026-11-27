@@ -53,8 +53,9 @@ Les instruments doivent être **découverts dynamiquement**. Ne jamais assumer l
 | `docs/LOT-000-validation-report.md` | Rapport LOT-000 |
 | `docs/LOT-001-REPORT.md` | Rapport LOT-001 (fondation Python) |
 | `docs/LOT-002-REPORT.md` | Rapport LOT-002 (connecteur MT5 DEMO lecture seule) |
+| `docs/LOT-003-REPORT.md` | Rapport LOT-003 (Market Data Engine) |
 
-## Package Python (LOT-001 + LOT-002)
+## Package Python (LOT-001 + LOT-002 + LOT-003)
 
 Racine runtime : ce répertoire (`pyproject.toml`, `src/`, `tests/`, `config/`).
 
@@ -93,10 +94,19 @@ quant mt5 account
 quant mt5 symbols
 quant mt5 positions
 quant mt5 disconnect
+
+# LOT-003 — market data engine (Parquet / DuckDB / SQLite)
+quant data download -s EURUSD -t M1 -t H1 --from 2024-01-01T00:00:00Z
+quant data update -s EURUSD -t M1
+quant data validate -s EURUSD -k candles -t M1
+quant data inspect -s EURUSD -k candles -t M1
+quant data stats
 ```
 
-Credentials via `.env` (`MT5_LOGIN` / `MT5_PASSWORD` / `MT5_SERVER` / optionnel `MT5_PATH`). Ne jamais committer de secrets. Les comptes live/réels sont rejetés et verrouillés par le connecteur. **Aucun placement d'ordre** dans LOT-002.
+Credentials via `.env` (`MT5_LOGIN` / `MT5_PASSWORD` / `MT5_SERVER` / optionnel `MT5_PATH`). Ne jamais committer de secrets. Les comptes live/réels sont rejetés et verrouillés par le connecteur. **Aucun placement d'ordre.**
 
-## État actuel (LOT-001 + LOT-002)
+Données locales sous `data/` (gitignoré) : Parquet + DuckDB + `metadata.sqlite`. Timeframes : M1, M5, M15, M30, H1, H4, D1. Pas de fabrication silencieuse de barres manquantes.
 
-Fondation documentaire (LOT-000), scaffold Python modulaire (LOT-001), et connecteur MT5 DEMO lecture seule (LOT-002). **Aucune stratégie de trading n'est implémentée.** Aucun ordre placé. Voir `ROADMAP.md` pour la suite.
+## État actuel (LOT-001 + LOT-002 + LOT-003)
+
+Fondation documentaire (LOT-000), scaffold Python (LOT-001), connecteur MT5 DEMO lecture seule (LOT-002), Market Data Engine (LOT-003). **Aucune stratégie de trading n'est implémentée.** Aucun ordre placé. Voir `ROADMAP.md` pour la suite.

@@ -29,6 +29,25 @@ mt5:
   backoff_base_s: 0.5
   heartbeat_interval_s: 30
 
+data:
+  # Local market-data root (Parquet + DuckDB + SQLite metadata). Gitignored.
+  root: data
+  # Default candle timeframes actually requested from MT5 (subset of available).
+  default_timeframes:
+    - M1
+    - M5
+    - M15
+    - M30
+    - H1
+    - H4
+    - D1
+  # Freshness: max age of last bar/tick before a series is considered stale.
+  freshness_max_age_s: 300
+  # Outlier detection: relative return z-score threshold (never auto-fills gaps).
+  outlier_zscore: 8.0
+  # Controlled reconstruction is OFF by default — missing bars stay missing.
+  allow_reconstruction: false
+
 logging:
   structured: true
   serialize: false
