@@ -274,7 +274,6 @@ class QuantitativeResearchEngine:
                     forward_horizon=horizon,
                     method=self.return_method,
                     min_observations=self.edge_min_observations,
-                    annualization_factor=self.annualization_factor,
                 )
             )
         return out

@@ -84,8 +84,14 @@ class EdgeMetrics(BaseModel):
     profit_factor: float | None = None
     avg_win: float | None = None
     avg_loss: float | None = None
-    sharpe: float | None = None
-    max_drawdown: float | None = None
+    sharpe: float | None = Field(
+        default=None,
+        description="Per-active-signal mean/std of signed PnL (not calendar-annualized)",
+    )
+    max_drawdown: float | None = Field(
+        default=None,
+        description="Max drawdown of cumsum(signed PnL) with HWM seeded at 0",
+    )
     mean_forward_return: float | None = None
     verdict: EdgeVerdict = EdgeVerdict.UNKNOWN
     notes: str = ""

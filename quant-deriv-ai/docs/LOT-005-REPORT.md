@@ -91,3 +91,4 @@ Skipped tests (honest BLOCKED from prior lots, not PASS):
 
 - Stacked on LOT-004 branch `cursor/lot-004-technical-analysis-5fc4`.
 - Overall **PASS** for unit/causality/lint/typecheck/CLI controls that were executed and green.
+- Follow-up on PR #9: fixed 3 Bugbot findings — per-active-signal Sharpe (no `sqrt(252)` on sparse trades), abstain_rate excludes warmup NaNs and reconciles with observations/active_signals, max drawdown HWM seeded at 0.

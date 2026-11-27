@@ -12,6 +12,10 @@ from quant_deriv_ai.core.exceptions import QuantDerivError
 from quant_deriv_ai.quantitative.causality import assert_min_forward_lag, forward_returns
 from quant_deriv_ai.quantitative.models import EdgeMetrics, EdgeVerdict
 
+# Per-active-signal Sharpe (mean/std, NOT calendar-annualized).
+# 0.05 is a conservative research gate for sparse probes.
+_CANDIDATE_SHARPE_MIN = 0.05
+
 
 class EdgeError(QuantDerivError):
     """Raised for invalid edge-evaluation inputs."""
@@ -26,12 +30,20 @@ def evaluate_edge(
     forward_horizon: int = 1,
     method: str = "log",
     min_observations: int = 30,
-    annualization_factor: float = 252.0,
 ) -> EdgeMetrics:
     """Evaluate a causal signal against forward returns.
 
     ``signal`` at bar ``t`` is paired with the forward return that starts at
-    ``t+forward_lag`` (never same-bar). Zero / NaN signals count as abstention.
+    ``t+forward_lag`` (never same-bar).
+
+    Counting rules (reconcile):
+
+    - Warmup / undefined (NaN) signals are **excluded** from ``observations``.
+    - Among defined signals with a finite forward return: zero → abstain, else active.
+    - ``abstain_rate = (observations - active_signals) / observations``.
+
+    ``sharpe`` is the per-active-signal mean/std of signed PnL (not annualized).
+    Sparse probes must not be scaled by ``sqrt(252)`` as if they were daily bars.
     """
     assert_min_forward_lag(forward_lag)
     if forward_horizon < 1:
@@ -41,11 +53,12 @@ def evaluate_edge(
 
     fwd = forward_returns(close, lag=forward_lag, horizon=forward_horizon, method=method)
     sig = signal.astype(float)
-    mask = sig.notna() & fwd.notna() & (sig != 0.0)
-    abstain_mask = sig.isna() | (sig == 0.0)
-    n_total = int((sig.notna() & fwd.notna()).sum())
-    active = int(mask.sum())
-    abstain_rate = float(abstain_mask[fwd.notna()].mean()) if n_total else None
+    # Defined signal + usable forward return (warmup NaNs excluded).
+    eligible = sig.notna() & fwd.notna()
+    n_total = int(eligible.sum())
+    active_mask = eligible & (sig != 0.0)
+    active = int(active_mask.sum())
+    abstain_rate = float((n_total - active) / n_total) if n_total else None
 
     if active == 0:
         return EdgeMetrics(
@@ -60,7 +73,9 @@ def evaluate_edge(
         )
 
     # Signed PnL proxy: sign(signal) * forward_return
-    signed = (np.sign(sig[mask].to_numpy(dtype=float)) * fwd[mask].to_numpy(dtype=float))
+    signed = np.sign(sig[active_mask].to_numpy(dtype=float)) * fwd[active_mask].to_numpy(
+        dtype=float
+    )
     hit_rate = float(np.mean(signed > 0.0))
     expectancy = float(np.mean(signed))
     wins = signed[signed > 0.0]
@@ -76,14 +91,15 @@ def evaluate_edge(
     else:
         profit_factor = None
 
+    # Per-trade Sharpe — do NOT annualize sparse/irregular active-signal returns.
     sharpe: float | None = None
     if signed.size > 1:
         std = float(np.std(signed, ddof=1))
         if std > 0.0:
-            sharpe = float(np.mean(signed) / std * np.sqrt(annualization_factor))
+            sharpe = float(np.mean(signed) / std)
 
     max_dd = _max_drawdown(signed)
-    mean_fwd = float(np.mean(fwd[mask].to_numpy(dtype=float)))
+    mean_fwd = float(np.mean(fwd[active_mask].to_numpy(dtype=float)))
 
     verdict = _classify_verdict(
         active=active,
@@ -94,7 +110,8 @@ def evaluate_edge(
     )
     notes = (
         "Research probe only — not a trading strategy; no orders. "
-        f"verdict={verdict.value}."
+        f"verdict={verdict.value}. "
+        "sharpe=per-active-signal mean/std (not calendar-annualized)."
     )
     # Replace inf for JSON/Pydantic friendliness
     if profit_factor is None or not np.isfinite(profit_factor):
@@ -168,9 +185,10 @@ def rsi_threshold_probe(
 
 
 def _max_drawdown(signed_pnl: NDArray[np.floating[Any]]) -> float | None:
+    """Max drawdown from a starting equity of 0 (HWM seeded before first trade)."""
     if signed_pnl.size == 0:
         return None
-    equity = np.cumsum(signed_pnl)
+    equity = np.concatenate(([0.0], np.cumsum(signed_pnl)))
     peak = np.maximum.accumulate(equity)
     dd = equity - peak
     return float(dd.min())
@@ -186,10 +204,10 @@ def _classify_verdict(
 ) -> EdgeVerdict:
     if active < min_observations:
         return EdgeVerdict.INSUFFICIENT_DATA
-    # Conservative: require positive expectancy + hit>0.5 + sharpe>0 to be candidate
+    # Conservative gates on per-active-signal Sharpe (not annualized).
     if expectancy <= 0.0 or hit_rate <= 0.5:
         return EdgeVerdict.NO_EDGE
-    if sharpe is not None and sharpe > 0.5 and hit_rate >= 0.55:
+    if sharpe is not None and sharpe > _CANDIDATE_SHARPE_MIN and hit_rate >= 0.55:
         return EdgeVerdict.CANDIDATE
     if expectancy > 0.0 and hit_rate > 0.5:
         return EdgeVerdict.WEAK
