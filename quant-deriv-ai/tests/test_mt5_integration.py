@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import platform
+from pathlib import Path
 
 import pytest
 
@@ -69,10 +70,12 @@ def test_env_placeholders_not_used_as_secrets(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.delenv("MT5_LOGIN", raising=False)
     monkeypatch.delenv("MT5_PASSWORD", raising=False)
     monkeypatch.delenv("MT5_SERVER", raising=False)
-    assert load_credentials_from_env(require_complete=False) is None
+    # Isolate from any ambient cwd `.env` (same pattern as credentials unit tests).
+    empty = Path("/dev/null")
+    assert load_credentials_from_env(require_complete=False, env_file=empty) is None
     # Ensure we never treat blank strings as credentials.
     monkeypatch.setenv("MT5_LOGIN", "")
     monkeypatch.setenv("MT5_PASSWORD", "")
     monkeypatch.setenv("MT5_SERVER", "")
-    assert load_credentials_from_env(require_complete=False) is None
+    assert load_credentials_from_env(require_complete=False, env_file=empty) is None
     assert not os.environ.get("MT5_PASSWORD")

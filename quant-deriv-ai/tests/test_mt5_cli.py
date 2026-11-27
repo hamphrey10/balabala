@@ -28,6 +28,22 @@ def test_mt5_status_disconnected() -> None:
     assert "disconnected" in result.stdout
 
 
+def test_mt5_status_survives_missing_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """status/disconnect must not crash when YAML config is missing (Bugbot)."""
+    import quant_deriv_ai.cli.mt5_cmds as mt5_cmds
+
+    monkeypatch.setattr(mt5_cmds, "_client", None)
+    monkeypatch.setenv("QUANT_CONFIG_PATH", "/nonexistent/quant-config.yaml")
+    result = runner.invoke(app, ["mt5", "status"])
+    assert result.exit_code == 0, result.stdout
+    assert "disconnected" in result.stdout
+
+    monkeypatch.setattr(mt5_cmds, "_client", None)
+    result = runner.invoke(app, ["mt5", "disconnect"])
+    assert result.exit_code == 0, result.stdout
+    assert "disconnected" in result.stdout.lower()
+
+
 def test_mt5_connect_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MT5_LOGIN", "123")
     monkeypatch.setenv("MT5_PASSWORD", "secret")

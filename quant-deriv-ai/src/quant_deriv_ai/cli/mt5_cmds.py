@@ -25,16 +25,30 @@ _client: Mt5Client | None = None
 
 
 def _get_client(cfg: QuantConfig | None = None) -> Mt5Client:
-    """Return the process-local client, applying YAML MT5 settings on first create."""
+    """Return the process-local client, applying YAML MT5 settings on first create.
+
+    When ``cfg`` is omitted (status/disconnect), a missing or invalid YAML config
+    is non-fatal — fall back to ``Mt5Client`` defaults so those commands still work.
+    """
     global _client
     if _client is None:
-        settings = (cfg if cfg is not None else load_config()).mt5
-        _client = Mt5Client(
-            timeout_ms=settings.timeout_ms,
-            max_retries=settings.max_retries,
-            backoff_base_s=settings.backoff_base_s,
-            heartbeat_interval_s=settings.heartbeat_interval_s,
-        )
+        settings = None
+        if cfg is not None:
+            settings = cfg.mt5
+        else:
+            try:
+                settings = load_config().mt5
+            except ConfigError:
+                settings = None
+        if settings is None:
+            _client = Mt5Client()
+        else:
+            _client = Mt5Client(
+                timeout_ms=settings.timeout_ms,
+                max_retries=settings.max_retries,
+                backoff_base_s=settings.backoff_base_s,
+                heartbeat_interval_s=settings.heartbeat_interval_s,
+            )
     return _client
 
 
