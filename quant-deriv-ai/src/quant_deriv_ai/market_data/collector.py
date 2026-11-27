@@ -12,7 +12,13 @@ import pandas as pd
 
 from quant_deriv_ai.core.logging import get_logger
 from quant_deriv_ai.execution.mt5.models import Candle, TickData
-from quant_deriv_ai.market_data.normalize import candles_to_frame, ticks_to_frame
+from quant_deriv_ai.market_data.models import SeriesKind
+from quant_deriv_ai.market_data.normalize import (
+    candles_to_frame,
+    dedupe_subset,
+    normalize_frame,
+    ticks_to_frame,
+)
 from quant_deriv_ai.market_data.timeframes import assert_available_timeframe
 
 log = get_logger(__name__)
@@ -131,7 +137,12 @@ class MarketDataCollector:
         date_from: datetime,
         date_to: datetime,
     ) -> pd.DataFrame:
-        """Fetch the full [from, to] tick window, paging when MT5 truncates."""
+        """Fetch the full [from, to] tick window, paging when MT5 truncates.
+
+        When a page is full and ends mid-second, the boundary second is re-fetched
+        in full before advancing so same-second ticks after the page cutoff are
+        not dropped.
+        """
         chunks: list[pd.DataFrame] = []
         cursor = date_from
         end = date_to
@@ -155,20 +166,62 @@ class MarketDataCollector:
                 break
             chunks.append(frame)
             last_time = pd.to_datetime(frame["time"], utc=True).iloc[-1].to_pydatetime()
-            # Advance past the last observed second (MT5 tick time is second-res).
+
+            # Short page ⇒ terminal returned everything available for this window.
+            if len(batch) < _TICK_PAGE_SIZE:
+                break
+
+            # Full page may have truncated mid-second. Re-fetch that second fully
+            # (from its start) and merge before advancing past it.
+            boundary = self._fetch_ticks_for_second(symbol, last_time, use_range=use_range)
+            if not boundary.empty:
+                boundary = boundary.loc[boundary["time"] <= end_ts].reset_index(drop=True)
+                if not boundary.empty:
+                    chunks.append(boundary)
+
             next_cursor = last_time + timedelta(seconds=1)
             if next_cursor <= cursor:
                 break
             cursor = next_cursor
-            # Short page ⇒ terminal returned everything available for this window.
-            if len(batch) < _TICK_PAGE_SIZE:
-                break
             if pages > 10_000:
                 log.warning("tick pagination safety stop pages={}", pages)
                 break
         if not chunks:
             return ticks_to_frame([])
-        return pd.concat(chunks, ignore_index=True)
+        # Identity dedupe across overlapping page / boundary-second fetches.
+        combined = pd.concat(chunks, ignore_index=True)
+        combined = normalize_frame(combined, SeriesKind.TICKS)
+        return combined.drop_duplicates(
+            subset=dedupe_subset(SeriesKind.TICKS), keep="last"
+        ).reset_index(drop=True)
+
+    def _fetch_ticks_for_second(
+        self,
+        symbol: str,
+        second: datetime,
+        *,
+        use_range: bool,
+    ) -> pd.DataFrame:
+        """Fetch all ticks starting at ``second`` (second-resolution MT5 window)."""
+        second = _as_utc(second)
+        if use_range:
+            batch = self._source.copy_ticks_range(symbol, second, second)
+        else:
+            batch = self._source.copy_ticks_from(symbol, second, _TICK_PAGE_SIZE)
+        if not batch:
+            return ticks_to_frame([])
+        frame = ticks_to_frame(batch)
+        if frame.empty:
+            return frame
+        target = pd.Timestamp(second)
+        frame = frame.loc[frame["time"] == target].reset_index(drop=True)
+        if len(batch) >= _TICK_PAGE_SIZE:
+            log.warning(
+                "tick second {} may exceed page size {} — API truncated",
+                second.isoformat(),
+                _TICK_PAGE_SIZE,
+            )
+        return frame
 
 
 def _as_utc(value: datetime) -> datetime:

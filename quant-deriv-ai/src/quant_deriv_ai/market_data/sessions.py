@@ -17,10 +17,11 @@ def max_intra_session_gap(timeframe: str) -> timedelta:
     """
     tf = assert_available_timeframe(timeframe)
     delta = timeframe_delta(tf)
-    # Allow a handful of consecutive missing bars inside a session; anything larger
-    # is treated as a closed-market interval.
+    # Gaps *larger than* this value are session breaks (weekends / holidays).
+    # D1: only a single missing weekday (gap == 2 days) is intra-session.
+    # Friday→Monday = 3 days and long weekends (≥4 days) must be closures.
     if tf == "D1":
-        return timedelta(days=4)  # weekend / holiday stretch between daily bars
+        return timedelta(days=2)
     # Intraday: 6 bars or 2 hours, whichever is larger.
     return max(delta * 6, timedelta(hours=2))
 

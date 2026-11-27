@@ -270,6 +270,77 @@ def test_same_second_ticks_preserved(tmp_path: Path) -> None:
     assert len(stored) == 3
 
 
+def test_tick_pagination_keeps_boundary_second(tmp_path: Path) -> None:
+    """Full page ending mid-second must not drop remaining ticks in that second."""
+
+    class PagedSource(MockSource):
+        def __init__(self) -> None:
+            super().__init__()
+            self._page_size = 5
+            # Second 0: 3 ticks, Second 1: 4 ticks — first page (5) ends mid t1.
+            self.t0 = datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC)
+            self.t1 = datetime(2024, 1, 1, 0, 0, 1, tzinfo=UTC)
+            self.all_ticks = [
+                TickData(symbol="EURUSD", time=self.t0, bid=1.0 + i * 0.01, ask=1.01 + i * 0.01)
+                for i in range(3)
+            ] + [
+                TickData(symbol="EURUSD", time=self.t1, bid=2.0 + i * 0.01, ask=2.01 + i * 0.01)
+                for i in range(4)
+            ]
+
+        def copy_ticks_range(
+            self,
+            symbol: str,
+            date_from: datetime,
+            date_to: datetime,
+            *,
+            flags: int | None = None,
+        ) -> list[TickData]:
+            _ = flags
+            start = date_from.astimezone(UTC) if date_from.tzinfo else date_from.replace(tzinfo=UTC)
+            end = date_to.astimezone(UTC) if date_to.tzinfo else date_to.replace(tzinfo=UTC)
+            matched = [t for t in self.all_ticks if start <= t.time <= end and t.symbol == symbol]
+            # Same-second window: return full second (boundary refill path).
+            if start == end:
+                return matched
+            # Multi-second window: simulate MT5 page truncation.
+            return matched[: self._page_size]
+
+        def copy_ticks_from(
+            self,
+            symbol: str,
+            date_from: datetime,
+            count: int,
+            *,
+            flags: int | None = None,
+        ) -> list[TickData]:
+            _ = flags
+            start = date_from.astimezone(UTC) if date_from.tzinfo else date_from.replace(tzinfo=UTC)
+            matched = [t for t in self.all_ticks if t.time >= start and t.symbol == symbol]
+            return matched[:count]
+
+    # Patch page size for this test.
+    import quant_deriv_ai.market_data.collector as collector_mod
+
+    original = collector_mod._TICK_PAGE_SIZE
+    collector_mod._TICK_PAGE_SIZE = 5
+    try:
+        engine = MarketDataEngine.from_root(
+            tmp_path / "data",
+            source=PagedSource(),
+            settings=DataSettings(freshness_max_age_s=31_536_000),
+        )
+        result = engine.download_ticks(
+            "EURUSD",
+            datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC),
+            datetime(2024, 1, 1, 0, 0, 1, tzinfo=UTC),
+        )
+        stored = engine.store.read_working(symbol="EURUSD", kind=SeriesKind.TICKS)
+        assert len(stored) == 7, f"got {len(stored)} rows_fetched={result.rows_fetched}"
+    finally:
+        collector_mod._TICK_PAGE_SIZE = original
+
+
 def test_update_ticks_fetches_full_range(tmp_path: Path) -> None:
     class CountingSource(MockSource):
         def __init__(self) -> None:

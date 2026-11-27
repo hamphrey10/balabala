@@ -142,6 +142,69 @@ def test_weekend_gap_not_missing() -> None:
     assert not any(i.kind is QualityIssueKind.MISSING for i in report.issues)
 
 
+def test_d1_weekend_not_missing_or_fabricated() -> None:
+    # Friday D1 → Monday D1 (3 days) and Friday → Tuesday (4 days) are closures.
+    friday = datetime(2024, 1, 5, 0, 0, tzinfo=UTC)
+    monday = datetime(2024, 1, 8, 0, 0, tzinfo=UTC)
+    tuesday = datetime(2024, 1, 9, 0, 0, tzinfo=UTC)
+
+    def _d1(times: list[datetime]) -> pd.DataFrame:
+        rows = []
+        for i, t in enumerate(times):
+            c = 100.0 + i
+            rows.append(
+                {
+                    "symbol": "EURUSD",
+                    "timeframe": "D1",
+                    "time": t,
+                    "open": c,
+                    "high": c + 0.1,
+                    "low": c - 0.1,
+                    "close": c,
+                    "tick_volume": 10,
+                    "spread": 1,
+                    "real_volume": 0,
+                    "is_reconstructed": False,
+                    "reconstruction_method": "none",
+                }
+            )
+        return normalize_frame(pd.DataFrame(rows), SeriesKind.CANDLES)
+
+    for end in (monday, tuesday):
+        frame = _d1([friday, end])
+        report = validate_series(
+            frame,
+            symbol="EURUSD",
+            kind=SeriesKind.CANDLES,
+            timeframe="D1",
+            now=end,
+            require_fresh=False,
+        )
+        assert report.missing_count == 0, f"end={end}"
+        filled = reconstruct_candles(
+            frame,
+            timeframe="D1",
+            method=ReconstructionMethod.FORWARD_FILL,
+            allow=True,
+        )
+        assert len(filled) == 2
+        assert int(filled["is_reconstructed"].sum()) == 0
+
+    # Single missing weekday (Mon→Wed) is still an intra-session hole.
+    monday = datetime(2024, 1, 8, 0, 0, tzinfo=UTC)
+    wednesday = datetime(2024, 1, 10, 0, 0, tzinfo=UTC)
+    mid = _d1([monday, wednesday])
+    report = validate_series(
+        mid,
+        symbol="EURUSD",
+        kind=SeriesKind.CANDLES,
+        timeframe="D1",
+        now=wednesday,
+        require_fresh=False,
+    )
+    assert report.missing_count == 1
+
+
 def test_reconstruction_forbidden_by_default() -> None:
     start = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
     times = [start, start + timedelta(minutes=1), start + timedelta(minutes=3)]

@@ -18,6 +18,8 @@ Fixed all six review findings before merge:
 4. Freshness is informational unless `--require-fresh` / live update mode
 5. `pin_immutable` refuses if version directory already exists
 6. Tick dedupe uses full quote identity (same-second ticks preserved)
+7. D1 weekend/holiday gaps (3–4d) treated as session breaks, not missing
+8. Full tick pages re-fetch the boundary second before advancing (+1s)
 
 ---
 
