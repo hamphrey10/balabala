@@ -1,0 +1,24 @@
+---
+description: QUANT DERIV AI — tests réels, pas de résultats inventés, règle PASS
+alwaysApply: true
+---
+
+# QUANT DERIV AI — Testing Rules
+
+## Obligations
+- Exécuter réellement les tests (Pytest) avant toute conclusion de lot.
+- Aucun résultat de test, métrique ou backtest inventé.
+- Aucun look-ahead bias dans les backtests / validations d'edge.
+- Documenter la sortie réelle (exit code, résumé) dans le rapport de lot.
+
+## Verdicts
+- PASS : tous les contrôles obligatoires réellement exécutés et verts.
+- FAIL : échec d'un contrôle obligatoire ou livrable incorrect.
+- BLOCKED : obstacle externe empêchant un contrôle obligatoire.
+- Ne jamais déclarer PASS si un test obligatoire n'a pas été exécuté.
+
+## LOT-000
+Contrôles = existence des fichiers fondation + encodage des instructions + absence de stratégies + principes DEMO-only. Vérifier sur disque (ls/read), ne pas inventer.
+
+## Path note (LOT-000)
+Miroir de `.cursor/rules/testing.mdc` sous `dot-cursor/rules/` (agent-store bloque `.cursor`).

@@ -1,0 +1,25 @@
+---
+description: QUANT DERIV AI — sécurité, secrets, DEMO-only, pas d'ordres live
+alwaysApply: true
+---
+
+# QUANT DERIV AI — Security Rules
+
+## Secrets
+- Aucun credential dans le code source, les tests, fixtures, Markdown ou rapports.
+- Utiliser variables d'environnement / coffres hors dépôt uniquement.
+- Ne jamais coller de secrets dans le chat ou les logs.
+
+## DEMO only
+- Compte DEMO Deriv MT5 uniquement pour cette phase.
+- Ordres live / real / production trading : INTERDITS.
+- Refuser toute config qui active un compte non-DEMO.
+- Ne pas utiliser d'identifiants de compte réel pour l'exécution.
+
+## Agents
+- Pas de modification autonome du code de production hors process de lot.
+- Signaler toute fuite potentielle de secret dans un diff.
+- Conformité : SECURITY.md, RISK_POLICY.md, AGENTS.md.
+
+## Path note (LOT-000)
+Miroir de `.cursor/rules/security.mdc` sous `dot-cursor/rules/` (agent-store bloque `.cursor`).

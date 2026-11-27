@@ -1,0 +1,39 @@
+---
+description: QUANT DERIV AI — contraintes trading, risk engine, abstention, interdits
+alwaysApply: true
+globs:
+  - "**/*strategy*"
+  - "**/*trading*"
+  - "**/*execution*"
+  - "**/*risk*"
+  - "**/*mt5*"
+  - "**/*order*"
+---
+
+# QUANT DERIV AI — Trading Rules
+
+## Phase actuelle
+- DEMO account only. Live/real orders forbidden.
+- LOT-000 : ne pas implémenter de stratégies de trading.
+
+## Risk engine
+- Indépendant et obligatoire avant toute exécution.
+- Aucun modèle IA / agent / stratégie ne peut bypass le risk engine.
+- Rejet ou abstention du risk engine = définitif pour le cycle.
+
+## Interdits stratégie
+- Martingale : interdite.
+- Aggressive loss-recovery : interdite.
+- Trading sans edge statistique démontré : interdit → abstention obligatoire.
+- Capital preservation > returns. No profitability assumed or guaranteed.
+
+## Instruments
+- Volatility Indices, Boom/Crash, Jump, Step, Range Break, Forex, autres sur Deriv MT5.
+- Discover instruments dynamically ; never assume availability or characteristics.
+
+## Registry / governance
+- Enregistrer toute stratégie future dans STRATEGY_REGISTRY.md après preuves réelles.
+- Respecter MODEL_GOVERNANCE.md pour tout modèle influençant des signaux.
+
+## Path note (LOT-000)
+Miroir de `.cursor/rules/trading.mdc` sous `dot-cursor/rules/` (agent-store bloque `.cursor`).

@@ -1,0 +1,45 @@
+# TESTING.md — QUANT DERIV AI
+
+## Exigences
+
+1. **Tests réels obligatoires** — exécuter réellement la suite (Pytest) avant de conclure.
+2. **Aucun résultat inventé** — logs, exit codes et assertions doivent provenir d'une exécution réelle.
+3. **Pas de look-ahead bias** dans les backtests et validations d'edge.
+4. Couverture alignée sur le périmètre du lot : ce qui est implémenté est testé.
+5. Typage et contrats Pydantic validés par des tests unitaires quand applicable.
+
+## Règle PASS / FAIL / BLOCKED
+
+| Verdict | Condition |
+| --- | --- |
+| **PASS** | Tous les contrôles **obligatoires** du lot ont été **réellement** exécutés et sont verts |
+| **FAIL** | Au moins un contrôle obligatoire a été exécuté et a échoué, ou un livrable obligatoire est incorrect |
+| **BLOCKED** | Un obstacle externe empêche d'exécuter un contrôle obligatoire (environnement, accès, contrainte plateforme) |
+
+**Ne jamais déclarer PASS** si un test ou contrôle obligatoire n'a pas été réellement exécuté.
+
+## Look-ahead bias
+
+- Les features et labels doivent respecter la causalité temporelle.
+- Aucune information future dans les signaux de backtest.
+- Les tests de recherche doivent inclure des gardes ou scénarios qui échoueraient en cas de fuite temporelle évidente.
+
+## LOT-000 — contrôles obligatoires
+
+Pour LOT-000 (fondation documentaire, **sans** stratégies) :
+
+1. Tous les fichiers listés existent sur disque
+2. Le contenu encode les instructions maîtres dans les fichiers appropriés
+3. Aucune implémentation de stratégie de trading
+4. Principes DEMO-only / pas d'ordres live encodés
+
+Il n'y a pas de suite Pytest runtime à ce lot ; les contrôles sont des vérifications d'existence et de contenu. Les résultats doivent être factuels (ex. `ls` / lecture de fichiers), jamais inventés.
+
+## Lots futurs
+
+Dès qu'il y a du code :
+
+- Écrire les tests **avant** ou **avec** l'implémentation
+- Lancer Pytest réellement ; coller ou référencer la sortie réelle dans le rapport de lot
+- Vérifier les régressions
+- Mettre à jour ce document si de nouvelles classes de tests deviennent obligatoires
