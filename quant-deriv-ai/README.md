@@ -49,8 +49,54 @@ Les instruments doivent être **découverts dynamiquement**. Ne jamais assumer l
 | `CHANGELOG.md` | Historique des lots |
 | `STRATEGY_REGISTRY.md` | Registre des stratégies (vide à LOT-000) |
 | `MODEL_GOVERNANCE.md` | Cycle de vie des modèles et gates d'évaluation |
-| `.cursor/rules/` (cible) / `dot-cursor/rules/` (LOT-000 miroir) | Règles Cursor (projet, sécurité, tests, trading). Sur l'agent-store, `.cursor/` est bloqué — contenu sous `dot-cursor/rules/`. |
+| `.cursor/rules/` | Règles Cursor (projet, sécurité, tests, trading) |
+| `docs/LOT-000-validation-report.md` | Rapport LOT-000 |
+| `docs/LOT-001-REPORT.md` | Rapport LOT-001 (fondation Python) |
+| `docs/LOT-002-REPORT.md` | Rapport LOT-002 (connecteur MT5 DEMO lecture seule) |
 
-## État actuel (LOT-000)
+## Package Python (LOT-001 + LOT-002)
 
-Fondation documentaire et règles Cursor uniquement. **Aucune stratégie de trading n'est implémentée.** Aucun code d'exécution live. Voir `ROADMAP.md` pour la suite.
+Racine runtime : ce répertoire (`pyproject.toml`, `src/`, `tests/`, `config/`).
+
+### Prérequis
+
+- Python 3.12
+- Optionnel : package MetaTrader5 (**wheels Windows uniquement** ; typiquement non importable sur Linux)
+
+### Setup
+
+```bash
+cd quant-deriv-ai
+python3.12 -m venv --copies .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -e ".[dev]"
+# Sur Windows uniquement, quand MT5 est nécessaire :
+# pip install -e ".[dev,mt5]"
+cp .env.example .env
+```
+
+### CLI
+
+Point d'entrée : `quant`
+
+```bash
+quant version
+quant doctor
+quant status
+quant config validate
+
+# LOT-002 — connecteur MT5 DEMO (lecture seule ; Windows + terminal + creds DEMO)
+quant mt5 connect
+quant mt5 status
+quant mt5 account
+quant mt5 symbols
+quant mt5 positions
+quant mt5 disconnect
+```
+
+Credentials via `.env` (`MT5_LOGIN` / `MT5_PASSWORD` / `MT5_SERVER` / optionnel `MT5_PATH`). Ne jamais committer de secrets. Les comptes live/réels sont rejetés et verrouillés par le connecteur. **Aucun placement d'ordre** dans LOT-002.
+
+## État actuel (LOT-001 + LOT-002)
+
+Fondation documentaire (LOT-000), scaffold Python modulaire (LOT-001), et connecteur MT5 DEMO lecture seule (LOT-002). **Aucune stratégie de trading n'est implémentée.** Aucun ordre placé. Voir `ROADMAP.md` pour la suite.
