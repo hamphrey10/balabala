@@ -106,6 +106,16 @@
 | LOT-002 | Connecteur MT5 DEMO lecture seule |
 | LOT-003 | Market Data Engine (Parquet / DuckDB / SQLite) |
 | LOT-004 | Technical Analysis Agent (indicateurs + structure + MTF) |
+| LOT-005 | Quantitative Research Agent (stats lab + edge + reports) |
+
+### Quantitative Research Agent (LOT-005)
+
+- **Stats lab** : returns (log/simple), descriptive stats, rolling mean/std/z, autocorrelation, correlation matrix
+- **Edge probes** : momentum sign / RSI threshold vs forward returns (`lag >= 1`) — recherche uniquement, pas des stratégies
+- **Causalité** : prefix stability, future mutation (features), indépendance signal-bar pour labels forward
+- **ResearchReport** : contrat Pydantic + rendu Markdown/JSON
+- **CLI** : `quant research stats|edge|report`
+- **Frontière** : couche Research uniquement — **aucun ordre**
 
 ### Technical Analysis Agent (LOT-004)
 

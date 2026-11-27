@@ -55,6 +55,16 @@ Contrôles obligatoires (exécutés réellement) :
 4. Volumes synthétiques non assumés réels (`volume_is_synthetic=true` par défaut)
 5. Aucun API d'ordre / aucune stratégie de trading
 
+## LOT-005 — Quantitative Research Agent
+
+Contrôles obligatoires (exécutés réellement) :
+
+1. Pytest : stats lab ; edge metrics ; causalité (lag>=1, prefix / mutation / signal-bar) ; engine report ; CLI research
+2. Ruff + MyPy sur le package
+3. CLI `quant research stats|edge|report`
+4. Rapports Markdown/JSON sans métriques inventées
+5. Aucun API d'ordre / probes ≠ stratégies de trading
+
 ## Lots futurs
 
 Dès qu'il y a du code :

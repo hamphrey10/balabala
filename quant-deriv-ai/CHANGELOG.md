@@ -2,6 +2,23 @@
 
 Format : entrées par lot, du plus récent au plus ancien. Pas de métriques de performance inventées.
 
+## [LOT-005] — Quantitative Research Agent
+
+### Ajouté
+
+- Package `quantitative/` : stats lab, edge probes, garde-fous de causalité, rapports, engine, agent
+- CLI `quant research stats|edge|report`
+- Config `quantitative:` (forward lag min, horizon, reports_dir, probes RSI/momentum)
+- Contrats Pydantic `ResearchReport` / `EdgeMetrics` / `ReturnStats`
+- Tests stats / edge / causalité / CLI / engine
+- Rapport : `docs/LOT-005-REPORT.md`
+
+### Notes
+
+- Aucun ordre ; DEMO-only ; pas de secrets.
+- Les probes d'edge sont des outils de recherche, **pas** des stratégies de trading.
+- `forward_lag >= 1` obligatoire (anti look-ahead).
+
 ## [LOT-004] — Technical Analysis Agent
 
 ### Ajouté

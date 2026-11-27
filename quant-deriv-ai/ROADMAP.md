@@ -26,8 +26,8 @@ Ordre logique suggéré — à affiner lot par lot selon l'état réel du code :
 2. **Connexion MT5 DEMO** — client Deriv MT5 en mode démo uniquement ; refus explicite du live ; gestion sécurisée des credentials hors dépôt ✅ LOT-002
 3. **Market data** — découverte dynamique des instruments ; ingestion ; stockage SQLite / DuckDB / Parquet ✅ LOT-003
 4. **Technical analysis** — indicateurs vectorisés, structure, tendance, breakouts, MTF, `TechnicalSnapshot` ✅ LOT-004
-5. **Observabilité de base** — Loguru, audit trail minimal des décisions
-6. **Research toolkit** — pipelines d'analyse, garde-fous anti *look-ahead bias*, métriques d'edge
+5. **Research toolkit** — stats lab, garde-fous anti *look-ahead bias*, métriques d'edge, rapports ✅ LOT-005
+6. **Observabilité de base** — Loguru, audit trail minimal des décisions
 7. **Risk engine** — politiques de `RISK_POLICY.md` en code ; indépendance ; non-bypass IA
 8. **Couche exécution DEMO** — passage obligatoire par le risk engine ; pas d'ordres réels
 9. **Stratégies (lots dédiés)** — une stratégie à la fois ; enregistrement dans `STRATEGY_REGISTRY.md` ; tests réels ; abstention sans edge
