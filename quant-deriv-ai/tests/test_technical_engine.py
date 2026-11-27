@@ -166,3 +166,19 @@ def test_mtf_uses_engine_trend_params(frame: pd.DataFrame) -> None:
     )
     assert snap.mtf.dominant_trend == direct.dominant_trend
     assert [v.trend for v in snap.mtf.views] == [v.trend for v in direct.views]
+
+
+def test_mtf_unknown_blocks_alignment() -> None:
+    """Any requested TF that stays UNKNOWN must keep aligned=False."""
+    long = make_ohlc(120, seed=5)
+    short = make_ohlc(8, seed=6)  # too short for default SMA 20/50
+    consensus = analyze_mtf(
+        {"H1": long, "M5": short},
+        sma_fast=20,
+        sma_slow=50,
+    )
+    trends = {v.timeframe: v.trend for v in consensus.views}
+    assert trends["M5"] is TrendDirection.UNKNOWN
+    assert consensus.aligned is False
+    assert "UNKNOWN" in consensus.notes
+    assert "M5" in consensus.notes

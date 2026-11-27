@@ -105,6 +105,22 @@ def analyze_technical(
         )
     console.print(table)
 
+    if snap.mtf is not None and snap.mtf.views:
+        mtf_table = Table(title="MTF views")
+        mtf_table.add_column("Timeframe")
+        mtf_table.add_column("Trend")
+        mtf_table.add_column("Structure")
+        mtf_table.add_column("RSI")
+        for view in snap.mtf.views:
+            rsi_txt = f"{view.rsi:.2f}" if view.rsi is not None else "—"
+            mtf_table.add_row(
+                view.timeframe,
+                view.trend.value,
+                view.structure_bias.value,
+                rsi_txt,
+            )
+        console.print(mtf_table)
+
     if snap.indicators:
         ind = Table(title="Indicators (latest)")
         ind.add_column("Name")

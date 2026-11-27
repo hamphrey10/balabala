@@ -62,6 +62,7 @@ def analyze_mtf(
             )
         )
 
+    unknown_tfs = [v.timeframe for v in views if v.trend is TrendDirection.UNKNOWN]
     directions = [v.trend for v in views if v.trend is not TrendDirection.UNKNOWN]
     if not directions:
         return MTFConsensus(
@@ -80,11 +81,18 @@ def analyze_mtf(
     else:
         dominant = TrendDirection.SIDEWAYS
 
-    aligned = all(d is dominant for d in directions) and dominant in (
+    # Any unclassifiable requested TF blocks alignment — do not ignore UNKNOWN.
+    classified_aligned = all(d is dominant for d in directions) and dominant in (
         TrendDirection.UP,
         TrendDirection.DOWN,
     )
-    notes = "aligned" if aligned else "mixed / not fully aligned"
+    aligned = classified_aligned and not unknown_tfs
+    if unknown_tfs:
+        notes = f"incomplete: UNKNOWN on {', '.join(unknown_tfs)}"
+    elif aligned:
+        notes = "aligned"
+    else:
+        notes = "mixed / not fully aligned"
     return MTFConsensus(
         aligned=aligned,
         dominant_trend=dominant,
