@@ -22,9 +22,9 @@ Fichiers attendus :
 
 Ordre logique suggéré — à affiner lot par lot selon l'état réel du code :
 
-1. **Scaffold projet Python** — structure de packages, `pyproject.toml` / dépendances vérifiées (Python 3.12 + stack), typage, CLI Typer de base
-2. **Connexion MT5 DEMO** — client Deriv MT5 en mode démo uniquement ; refus explicite du live ; gestion sécurisée des credentials hors dépôt
-3. **Market data** — découverte dynamique des instruments ; ingestion ; stockage SQLite / DuckDB / Parquet
+1. **Scaffold projet Python** — structure de packages, `pyproject.toml` / dépendances vérifiées (Python 3.12 + stack), typage, CLI Typer de base ✅ LOT-001
+2. **Connexion MT5 DEMO** — client Deriv MT5 en mode démo uniquement ; refus explicite du live ; gestion sécurisée des credentials hors dépôt ✅ LOT-002
+3. **Market data** — découverte dynamique des instruments ; ingestion ; stockage SQLite / DuckDB / Parquet ✅ LOT-003
 4. **Observabilité de base** — Loguru, audit trail minimal des décisions
 5. **Research toolkit** — pipelines d'analyse, garde-fous anti *look-ahead bias*, métriques d'edge
 6. **Risk engine** — politiques de `RISK_POLICY.md` en code ; indépendance ; non-bypass IA

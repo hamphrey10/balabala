@@ -18,6 +18,9 @@ def test_load_default_config() -> None:
     assert cfg.trading.mode is TradingMode.DEMO
     assert cfg.trading.allow_live is False
     assert cfg.risk.martingale_forbidden is True
+    assert cfg.data.root == "data"
+    assert "M1" in cfg.data.default_timeframes
+    assert cfg.data.allow_reconstruction is False
 
 
 def test_validate_trading_mode_demo() -> None:

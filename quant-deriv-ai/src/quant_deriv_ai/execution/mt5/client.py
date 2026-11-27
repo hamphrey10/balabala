@@ -311,6 +311,31 @@ class Mt5Client:
 
         return self._call_with_retry(_once)
 
+    def copy_ticks_range(
+        self,
+        symbol: str,
+        date_from: datetime,
+        date_to: datetime,
+        *,
+        flags: int | None = None,
+    ) -> list[TickData]:
+        def _once() -> list[TickData]:
+            mt5 = self._ready_module()
+            tick_flags = COPY_TICKS_ALL if flags is None else flags
+            if hasattr(mt5, "COPY_TICKS_ALL") and flags is None:
+                tick_flags = int(mt5.COPY_TICKS_ALL)
+            raw = mt5.copy_ticks_range(
+                symbol,
+                _as_utc(date_from),
+                _as_utc(date_to),
+                tick_flags,
+            )
+            if raw is None:
+                raise_from_last_error(mt5, action=f"copy_ticks_range({symbol})")
+            return [_tick_from_row(symbol, row) for row in raw]
+
+        return self._call_with_retry(_once)
+
     def copy_rates_from_pos(
         self,
         symbol: str,

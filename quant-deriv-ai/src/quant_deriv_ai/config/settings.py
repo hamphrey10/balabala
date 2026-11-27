@@ -71,6 +71,21 @@ class LoggingSettings(BaseModel):
     sink: str = "stderr"
 
 
+class DataSettings(BaseModel):
+    """Market-data storage and quality defaults (LOT-003)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    root: str = "data"
+    default_timeframes: list[str] = Field(
+        default_factory=lambda: ["M1", "M5", "M15", "M30", "H1", "H4", "D1"]
+    )
+    # Allow large values for historical / offline validation windows.
+    freshness_max_age_s: int = Field(default=300, ge=1, le=31_536_000)
+    outlier_zscore: float = Field(default=8.0, ge=1.0, le=100.0)
+    allow_reconstruction: bool = False
+
+
 class QuantConfig(BaseModel):
     """Root configuration document."""
 
@@ -80,6 +95,7 @@ class QuantConfig(BaseModel):
     trading: TradingSettings = Field(default_factory=TradingSettings)
     risk: RiskSettings = Field(default_factory=RiskSettings)
     mt5: Mt5Settings = Field(default_factory=Mt5Settings)
+    data: DataSettings = Field(default_factory=DataSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
 

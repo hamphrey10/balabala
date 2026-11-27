@@ -2,6 +2,24 @@
 
 Format : entrées par lot, du plus récent au plus ancien. Pas de métriques de performance inventées.
 
+## [LOT-003] — Market Data Engine
+
+### Ajouté
+
+- Package `market_data/` : collector, normalize (UTC), quality, reconstruction contrôlée, engine, agent
+- Package `persistence/` : Parquet (historique), DuckDB (analyse), SQLite (métadonnées + versions)
+- CLI `quant data` : download / update / validate / inspect / stats
+- Timeframes disponibles : M1, M5, M15, M30, H1, H4, D1
+- Versioning immuable des datasets de backtest (hash SHA-256)
+- Tests qualité / intégrité / performance (mock MT5) ; intégration réelle BLOCKED sans terminal
+- Rapport : `docs/LOT-003-REPORT.md`
+
+### Notes
+
+- Aucune fabrication silencieuse de données manquantes (`allow_reconstruction=false` par défaut).
+- Aucun ordre ; DEMO-only ; pas de secrets.
+- Sur Linux : téléchargement réel MT5 **BLOCKED** (pas un PASS inventé).
+
 ## [LOT-002] — Connecteur MetaTrader5 DEMO (lecture seule)
 
 ### Ajouté
