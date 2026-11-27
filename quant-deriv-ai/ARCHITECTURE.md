@@ -7,7 +7,7 @@
 - Typage Python de bout en bout
 - Le *risk engine* est indépendant et non contournable
 - Exécution **DEMO uniquement** pour cette phase
-- Les stratégies ne sont **pas encore implémentées** (LOT-000 = fondation documentaire)
+- Les stratégies LOT-006 sont des **hypothèses expérimentales** (signaux candidats uniquement ; pas d'activation live)
 
 ## Couches modulaires
 
@@ -51,12 +51,14 @@
 - Interdiction du *look-ahead bias*
 - Aucune décision d'ordre directe depuis cette couche
 
-### 3. Strategy (stratégie) — non implémentée à LOT-000
+### 3. Strategy (stratégie) — LOT-006 (hypothèses)
 
-- Production de signaux candidats
-- Enregistrement dans `STRATEGY_REGISTRY.md`
-- Toute stratégie doit démontrer un edge statistique avant activation
+- Production de signaux candidats `BUY` / `SELL` / `HOLD` / `EXIT`
+- Registre code + `STRATEGY_REGISTRY.md` (12 hypothèses `STR-001`…`STR-012`)
+- `auto_activate=false` / `live_allowed=false` / `edge_demonstrated=false`
+- Toute stratégie doit démontrer un edge statistique avant activation future
 - Martingale et récupération agressive de pertes interdites
+- **Aucun ordre** depuis cette couche
 
 ### 4. Risk (risque)
 
@@ -107,6 +109,16 @@
 | LOT-003 | Market Data Engine (Parquet / DuckDB / SQLite) |
 | LOT-004 | Technical Analysis Agent (indicateurs + structure + MTF) |
 | LOT-005 | Quantitative Research Agent (stats lab + edge + reports) |
+| LOT-006 | Strategy Engine (12 hypothèses + registry + signaux) |
+
+### Strategy Engine (LOT-006)
+
+- **12 stratégies expérimentales** : hypothèses uniquement (`status=hypothesis`)
+- **Registre** : `strategies/registry.py` + `STRATEGY_REGISTRY.md`
+- **Signaux** : `BUY` / `SELL` / `HOLD` / `EXIT` (candidats ; pas d'exécution)
+- **CLI** : `quant strategy list|inspect|validate`
+- **Sécurité** : pas d'auto-activation live ; pas d'ordres ; pas d'edge revendiqué
+- **Frontière** : couche Strategy uniquement — **aucun ordre** ; risk engine non contourné
 
 ### Quantitative Research Agent (LOT-005)
 

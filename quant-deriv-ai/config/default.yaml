@@ -72,6 +72,13 @@ quantitative:
   rsi_high: 70.0
   return_method: log
 
+strategies:
+  # LOT-006 — Strategy Engine (12 experimental hypotheses).
+  # Signals only (BUY/SELL/HOLD/EXIT). No orders. No auto live activation.
+  include_series: false
+  auto_activate: false
+  live_allowed: false
+
 logging:
   structured: true
   serialize: false
