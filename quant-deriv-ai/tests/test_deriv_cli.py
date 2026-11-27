@@ -59,6 +59,9 @@ def test_deriv_connect_uses_yaml_endpoint(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """CLI must pass YAML deriv.endpoint into credentials when env unset."""
+    import quant_deriv_ai.cli.deriv_cmds as deriv_cmds
+    from quant_deriv_ai.execution.deriv.credentials import load_credentials_from_env
+
     cfg_path = tmp_path / "cfg.yaml"
     cfg_path.write_text(
         """
@@ -93,6 +96,15 @@ logging:
 """,
         encoding="utf-8",
     )
+    # Isolate EnvSettings from any ambient cwd `.env` (Bugbot LOW).
+    monkeypatch.chdir(tmp_path)
+    empty_env = Path("/dev/null")
+
+    def _load_isolated(**kwargs: object) -> object:
+        kwargs.setdefault("env_file", empty_env)
+        return load_credentials_from_env(**kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(deriv_cmds, "load_credentials_from_env", _load_isolated)
     monkeypatch.setenv("QUANT_CONFIG_PATH", str(cfg_path))
     monkeypatch.setenv("DERIV_APP_ID", "1089")
     monkeypatch.setenv("DERIV_API_TOKEN", "secret-token")
