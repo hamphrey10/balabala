@@ -49,3 +49,11 @@ class Mt5ConnectionError(Mt5Error):
 
 class LiveAccountForbiddenError(TradingModeError):
     """Raised when a LIVE/real (or non-DEMO) account is detected — all ops blocked."""
+
+
+class DerivError(QuantDerivError):
+    """Base error for Deriv WebSocket API connector failures."""
+
+
+class DerivConnectionError(DerivError):
+    """Raised when Deriv WebSocket connect/authorize/request fails."""

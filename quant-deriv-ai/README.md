@@ -1,6 +1,6 @@
 # QUANT DERIV AI
 
-Système de trading algorithmique autonome professionnel, connecté à **Deriv** via **MetaTrader 5**, opéré depuis **Cursor IDE**.
+Système de trading algorithmique autonome professionnel, connecté à **Deriv** via l'**API WebSocket officielle Deriv**, opéré depuis **Cursor IDE**.
 
 ## Objectif
 
@@ -16,23 +16,32 @@ Système de trading algorithmique autonome professionnel, connecté à **Deriv**
 
 > **COMPTE DEMO UNIQUEMENT.** Les ordres live / réels sont interdits pour cette phase du projet. Aucun credential de compte réel ne doit être utilisé pour l'exécution. Voir `SECURITY.md` et `RISK_POLICY.md`.
 
+## Connexion broker (priorité)
+
+| Priorité | Canal | Statut |
+| --- | --- | --- |
+| **Primaire** | **Deriv WebSocket API** (`wss://ws.derivws.com/websockets/v3?app_id=…`) | Connecteur DEMO lecture seule (`quant deriv …`) |
+| Secondaire / optionnel | MetaTrader 5 (terminal Windows) | Scaffold LOT-002 — non requis pour la connexion Deriv |
+
+Enregistrement app + tokens : [api.deriv.com](https://api.deriv.com). Auth officielle : message `{"authorize":"<token>"}`. Compte démo si `authorize.is_virtual == 1` (fail-closed sinon).
+
 ## Stack cible
 
 | Domaine | Technologies |
 | --- | --- |
-| OS / IDE | Windows 11, Cursor IDE |
+| OS / IDE | Windows 11 / Linux (agent), Cursor IDE |
 | Langage | Python 3.12 (vérifier la compatibilité) |
-| Broker / plateforme | MetaTrader 5, Deriv MT5 |
+| Broker / plateforme | **Deriv API (WebSocket)** ; MT5 optionnel |
 | Données | SQLite, DuckDB, Parquet |
 | Quant / ML | NumPy, Pandas, SciPy, Scikit-learn, XGBoost |
-| App | Pydantic, Asyncio, Loguru, Rich, Typer |
+| App | Pydantic, Asyncio, Loguru, Rich, Typer, websockets |
 | Tests / outillage | Pytest, MCP Python SDK, Git |
 
 **Règle dépendances :** vérifier les versions compatibles avant installation. Ne pas choisir une dépendance uniquement parce qu'elle est la plus récente.
 
 ## Instruments à étudier
 
-Volatility Indices, Boom/Crash, Jump, Step, Range Break, Forex, et tout autre instrument disponible sur le compte Deriv MT5.
+Volatility Indices, Boom/Crash, Jump, Step, Range Break, Forex, et tout autre instrument disponible sur le compte Deriv (découverte dynamique via l'API).
 
 Les instruments doivent être **découverts dynamiquement**. Ne jamais assumer leurs caractéristiques ni leur disponibilité.
 
@@ -53,15 +62,17 @@ Les instruments doivent être **découverts dynamiquement**. Ne jamais assumer l
 | `docs/LOT-000-validation-report.md` | Rapport LOT-000 |
 | `docs/LOT-001-REPORT.md` | Rapport LOT-001 (fondation Python) |
 | `docs/LOT-002-REPORT.md` | Rapport LOT-002 (connecteur MT5 DEMO lecture seule) |
+| `docs/DERIV-CONNECTION-REPORT.md` | Rapport connexion Deriv API |
 
-## Package Python (LOT-001 + LOT-002)
+## Package Python
 
 Racine runtime : ce répertoire (`pyproject.toml`, `src/`, `tests/`, `config/`).
 
 ### Prérequis
 
 - Python 3.12
-- Optionnel : package MetaTrader5 (**wheels Windows uniquement** ; typiquement non importable sur Linux)
+- Accès Deriv API (app_id + token DEMO) via [api.deriv.com](https://api.deriv.com)
+- Optionnel : package MetaTrader5 (**wheels Windows uniquement**)
 
 ### Setup
 
@@ -71,9 +82,10 @@ python3.12 -m venv --copies .venv
 source .venv/bin/activate
 pip install -U pip
 pip install -e ".[dev]"
-# Sur Windows uniquement, quand MT5 est nécessaire :
+# Sur Windows uniquement, quand MT5 optionnel est nécessaire :
 # pip install -e ".[dev,mt5]"
 cp .env.example .env
+# Remplir DERIV_APP_ID et DERIV_API_TOKEN (compte DEMO / virtual)
 ```
 
 ### CLI
@@ -86,7 +98,13 @@ quant doctor
 quant status
 quant config validate
 
-# LOT-002 — connecteur MT5 DEMO (lecture seule ; Windows + terminal + creds DEMO)
+# Primaire — Deriv WebSocket API (DEMO, lecture seule)
+quant deriv connect
+quant deriv status
+quant deriv account
+quant deriv disconnect
+
+# Optionnel — MT5 (Windows + terminal + creds DEMO)
 quant mt5 connect
 quant mt5 status
 quant mt5 account
@@ -95,8 +113,9 @@ quant mt5 positions
 quant mt5 disconnect
 ```
 
-Credentials via `.env` (`MT5_LOGIN` / `MT5_PASSWORD` / `MT5_SERVER` / optionnel `MT5_PATH`). Ne jamais committer de secrets. Les comptes live/réels sont rejetés et verrouillés par le connecteur. **Aucun placement d'ordre** dans LOT-002.
+**Credentials Deriv** (`.env`) : `DERIV_APP_ID`, `DERIV_API_TOKEN`, optionnel `DERIV_ENDPOINT`.  
+Ne jamais committer de secrets. Ne jamais logger le token. Comptes réels (`is_virtual=0`) rejetés et verrouillés. **Aucun placement d'ordre.**
 
-## État actuel (LOT-001 + LOT-002)
+## État actuel
 
-Fondation documentaire (LOT-000), scaffold Python modulaire (LOT-001), et connecteur MT5 DEMO lecture seule (LOT-002). **Aucune stratégie de trading n'est implémentée.** Aucun ordre placé. Voir `ROADMAP.md` pour la suite.
+Fondation documentaire (LOT-000), scaffold Python (LOT-001), connecteur MT5 optionnel (LOT-002), **connecteur Deriv API DEMO lecture seule (primaire)**. **Aucune stratégie de trading n'est implémentée.** Aucun ordre placé. Voir `ROADMAP.md` pour la suite.

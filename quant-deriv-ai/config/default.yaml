@@ -19,7 +19,16 @@ risk:
   require_demonstrated_edge: true
   abstain_without_edge: true
 
+deriv:
+  # Primary broker connection: official Deriv WebSocket API.
+  # Credentials (DERIV_APP_ID / DERIV_API_TOKEN) come from env — never from this file.
+  # Register an app + token at https://api.deriv.com (use a DEMO/virtual account).
+  enabled: true
+  endpoint: "wss://ws.derivws.com/websockets/v3"
+  timeout_s: 30
+
 mt5:
+  # Optional / secondary scaffold (Windows terminal). Prefer Deriv API for this project.
   # Connection parameters come from environment variables, never from this file's secrets.
   enabled: false
   # Path to terminal executable (Windows). Empty on non-Windows hosts.

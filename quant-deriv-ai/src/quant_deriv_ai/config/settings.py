@@ -63,6 +63,17 @@ class Mt5Settings(BaseModel):
     heartbeat_interval_s: float = Field(default=30.0, ge=1.0, le=600.0)
 
 
+class DerivSettings(BaseModel):
+    """Deriv WebSocket API settings (credentials stay in env — never in YAML)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    # Official default; override via DERIV_ENDPOINT env when needed.
+    endpoint: str = "wss://ws.derivws.com/websockets/v3"
+    timeout_s: float = Field(default=30.0, ge=1.0, le=300.0)
+
+
 class LoggingSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -79,6 +90,7 @@ class QuantConfig(BaseModel):
     app: AppSettings = Field(default_factory=AppSettings)
     trading: TradingSettings = Field(default_factory=TradingSettings)
     risk: RiskSettings = Field(default_factory=RiskSettings)
+    deriv: DerivSettings = Field(default_factory=DerivSettings)
     mt5: Mt5Settings = Field(default_factory=Mt5Settings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
@@ -97,6 +109,11 @@ class EnvSettings(BaseSettings):
     quant_log_level: str | None = None
     quant_config_path: str | None = None
     quant_trading_mode: str | None = None
+    # Primary: Deriv WebSocket API
+    deriv_app_id: str | None = None
+    deriv_api_token: str | None = None
+    deriv_endpoint: str | None = None
+    # Optional / secondary: MetaTrader 5
     mt5_login: str | None = None
     mt5_password: str | None = None
     mt5_server: str | None = None
@@ -161,6 +178,10 @@ def load_config(path: str | Path | None = None) -> QuantConfig:
         raw.setdefault("mt5", {})
         if isinstance(raw["mt5"], dict):
             raw["mt5"]["terminal_path"] = env.mt5_path
+    if env.deriv_endpoint:
+        raw.setdefault("deriv", {})
+        if isinstance(raw["deriv"], dict):
+            raw["deriv"]["endpoint"] = env.deriv_endpoint
 
     try:
         return QuantConfig.model_validate(raw)
