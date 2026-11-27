@@ -2,6 +2,23 @@
 
 Format : entrées par lot, du plus récent au plus ancien. Pas de métriques de performance inventées.
 
+## [Deriv API] — Connexion WebSocket officielle (DEMO, lecture seule)
+
+### Ajouté
+
+- Package `execution/deriv/` : client WebSocket, credentials env-only, live lock (`is_virtual`), modèles
+- CLI `quant deriv` : connect / status / account / disconnect
+- Env : `DERIV_APP_ID`, `DERIV_API_TOKEN`, `DERIV_ENDPOINT` (voir `.env.example` + api.deriv.com)
+- Tests unitaires mockés (transport injectable)
+- Rapport : `docs/DERIV-CONNECTION-REPORT.md`
+
+### Notes
+
+- **Connexion primaire = Deriv API** ; MT5 reste scaffold secondaire/optionnel.
+- Endpoint officiel : `wss://ws.derivws.com/websockets/v3?app_id=…`
+- Auth : `authorize` ; démo si `is_virtual=1` (fail-closed sinon).
+- Aucun `buy` / `sell` / `proposal` d'achat exposé.
+
 ## [LOT-002] — Connecteur MetaTrader5 DEMO (lecture seule)
 
 ### Ajouté
