@@ -93,19 +93,53 @@ def test_detects_outlier() -> None:
     assert any(i.kind is QualityIssueKind.OUTLIER for i in report.issues)
 
 
-def test_freshness_stale() -> None:
+def test_freshness_stale_requires_flag() -> None:
     start = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
     frame = _candles([start, start + timedelta(minutes=1)])
-    report = validate_series(
+    # Historical / default: measure freshness but do not fail ok.
+    historical = validate_series(
         frame,
         symbol="EURUSD",
         kind=SeriesKind.CANDLES,
         timeframe="M1",
         now=start + timedelta(hours=1),
         freshness_max_age_s=60,
+        require_fresh=False,
     )
-    assert report.is_fresh is False
-    assert any(i.kind is QualityIssueKind.STALE for i in report.issues)
+    assert historical.is_fresh is False
+    assert historical.ok is True
+    assert not any(i.kind is QualityIssueKind.STALE for i in historical.issues)
+    # Live mode: staleness fails the report.
+    live = validate_series(
+        frame,
+        symbol="EURUSD",
+        kind=SeriesKind.CANDLES,
+        timeframe="M1",
+        now=start + timedelta(hours=1),
+        freshness_max_age_s=60,
+        require_fresh=True,
+    )
+    assert live.is_fresh is False
+    assert live.ok is False
+    assert any(i.kind is QualityIssueKind.STALE for i in live.issues)
+
+
+def test_weekend_gap_not_missing() -> None:
+    # Friday 21:00 → Monday 01:00 — session break, not missing M1 bars.
+    friday = datetime(2024, 1, 5, 21, 0, tzinfo=UTC)  # Friday
+    monday = datetime(2024, 1, 8, 1, 0, tzinfo=UTC)  # Monday
+    frame = _candles([friday, monday], closes=[100.0, 101.0])
+    report = validate_series(
+        frame,
+        symbol="EURUSD",
+        kind=SeriesKind.CANDLES,
+        timeframe="M1",
+        now=monday,
+        freshness_max_age_s=60,
+        require_fresh=False,
+    )
+    assert report.missing_count == 0
+    assert not any(i.kind is QualityIssueKind.MISSING for i in report.issues)
 
 
 def test_reconstruction_forbidden_by_default() -> None:
@@ -137,3 +171,17 @@ def test_controlled_forward_fill_marks_rows() -> None:
     assert (reconstructed["reconstruction_method"] == "forward_fill").all()
     # Original rows remain unmarked
     assert int((~filled["is_reconstructed"]).sum()) == 3
+
+
+def test_reconstruction_skips_weekend_closure() -> None:
+    friday = datetime(2024, 1, 5, 21, 0, tzinfo=UTC)
+    monday = datetime(2024, 1, 8, 1, 0, tzinfo=UTC)
+    frame = _candles([friday, monday], closes=[100.0, 101.0])
+    filled = reconstruct_candles(
+        frame,
+        timeframe="M1",
+        method=ReconstructionMethod.FORWARD_FILL,
+        allow=True,
+    )
+    assert len(filled) == 2
+    assert int(filled["is_reconstructed"].sum()) == 0

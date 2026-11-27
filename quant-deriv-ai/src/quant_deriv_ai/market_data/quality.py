@@ -17,7 +17,9 @@ from quant_deriv_ai.market_data.models import (
     QualityReport,
     SeriesKind,
 )
-from quant_deriv_ai.market_data.timeframes import assert_available_timeframe, timeframe_delta
+from quant_deriv_ai.market_data.normalize import dedupe_subset
+from quant_deriv_ai.market_data.sessions import intra_session_missing_times
+from quant_deriv_ai.market_data.timeframes import assert_available_timeframe
 
 
 def validate_series(
@@ -29,8 +31,14 @@ def validate_series(
     now: datetime | None = None,
     freshness_max_age_s: int = 300,
     outlier_zscore: float = 8.0,
+    require_fresh: bool = False,
 ) -> QualityReport:
-    """Run quality checks; never invents rows."""
+    """Run quality checks; never invents rows.
+
+    ``require_fresh``: when False (default — historical/offline mode), freshness is
+    still measured (``freshness_age_s`` / ``is_fresh``) but STALE does not fail
+    ``ok``. When True (live / continuous update mode), staleness flips ``ok``.
+    """
     report = QualityReport(symbol=symbol, kind=kind, timeframe=timeframe, row_count=len(frame))
     if frame.empty:
         report.add_issue(
@@ -48,10 +56,8 @@ def validate_series(
             QualityIssue(kind=QualityIssueKind.NON_UTC, detail="timestamps are not UTC-aware")
         )
 
-    # Duplicates
-    subset = ["time"]
-    if kind is SeriesKind.CANDLES and "timeframe" in frame.columns:
-        subset = ["time", "timeframe"]
+    # Duplicates — candles by bar time; ticks by full quote identity (not second alone).
+    subset = dedupe_subset(kind)
     dup_mask = frame.duplicated(subset=subset, keep=False)
     dup_count = int(dup_mask.sum())
     report.duplicate_count = dup_count
@@ -59,7 +65,7 @@ def validate_series(
         report.add_issue(
             QualityIssue(
                 kind=QualityIssueKind.DUPLICATE,
-                detail=f"{dup_count} duplicate timestamp rows",
+                detail=f"{dup_count} duplicate identity rows (key={subset})",
                 count=dup_count,
             )
         )
@@ -68,18 +74,10 @@ def validate_series(
     if "is_reconstructed" in frame.columns:
         report.reconstructed_count = int(frame["is_reconstructed"].fillna(False).sum())
 
-    # Missing bars (candles only)
+    # Missing bars (candles only) — intra-session gaps only; weekends/closures skipped.
     if kind is SeriesKind.CANDLES and timeframe:
         tf = assert_available_timeframe(timeframe)
-        delta = timeframe_delta(tf)
-        expected = pd.date_range(
-            start=times.iloc[0],
-            end=times.iloc[-1],
-            freq=pd.Timedelta(delta),
-            inclusive="both",
-        )
-        unique_times = pd.DatetimeIndex(times.drop_duplicates())
-        missing = expected.difference(unique_times)
+        missing = intra_session_missing_times(times, timeframe=tf)
         missing_count = int(len(missing))
         report.missing_count = missing_count
         if missing_count:
@@ -88,7 +86,7 @@ def validate_series(
                 QualityIssue(
                     kind=QualityIssueKind.MISSING,
                     detail=(
-                        f"{missing_count} missing {tf} bars "
+                        f"{missing_count} intra-session missing {tf} bars "
                         f"(sample={[pd.Timestamp(t).isoformat() for t in sample]})"
                     ),
                     count=missing_count,
@@ -130,14 +128,14 @@ def validate_series(
             )
         )
 
-    # Freshness
+    # Freshness — always measured; only fails ``ok`` when require_fresh=True.
     clock = now or datetime.now(UTC)
     if clock.tzinfo is None:
         clock = clock.replace(tzinfo=UTC)
     age = (clock - report.last_time).total_seconds()
     report.freshness_age_s = age
     report.is_fresh = age <= float(freshness_max_age_s)
-    if not report.is_fresh:
+    if not report.is_fresh and require_fresh:
         report.add_issue(
             QualityIssue(
                 kind=QualityIssueKind.STALE,
@@ -149,7 +147,7 @@ def validate_series(
             )
         )
 
-    # ok stays True only when no issues were added
+    # ok stays True only when no failing issues were added
     return report
 
 

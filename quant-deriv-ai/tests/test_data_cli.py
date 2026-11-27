@@ -83,6 +83,6 @@ def test_data_stats_inspect_validate(
     validate = runner.invoke(
         app, ["data", "validate", "-s", "EURUSD", "-k", "candles", "-t", "M1"]
     )
-    # May exit 2 if stale relative to wall clock — command path still valid.
-    assert validate.exit_code in {0, 2}
+    # Default is historical mode — freshness is informational, exit 0 when otherwise ok.
+    assert validate.exit_code == 0
     assert "row_count" in validate.stdout

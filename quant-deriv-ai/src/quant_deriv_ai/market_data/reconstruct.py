@@ -3,6 +3,9 @@
 By default the engine leaves gaps. When reconstruction is explicitly enabled,
 inserted rows are flagged with ``is_reconstructed=True`` and a method label so
 backtests can exclude or audit them.
+
+Only **intra-session** holes are filled — weekends / market closures are never
+fabricated (see ``sessions.intra_session_missing_times``).
 """
 
 from __future__ import annotations
@@ -12,7 +15,8 @@ import pandas as pd
 from quant_deriv_ai.core.exceptions import QuantDerivError
 from quant_deriv_ai.market_data.models import ReconstructionMethod, SeriesKind
 from quant_deriv_ai.market_data.normalize import normalize_frame
-from quant_deriv_ai.market_data.timeframes import assert_available_timeframe, timeframe_delta
+from quant_deriv_ai.market_data.sessions import intra_session_missing_times
+from quant_deriv_ai.market_data.timeframes import assert_available_timeframe
 
 
 class ReconstructionForbiddenError(QuantDerivError):
@@ -30,7 +34,8 @@ def reconstruct_candles(
 
     ``NONE`` / ``MARK_GAP`` leave the series unchanged (gaps remain missing).
     ``FORWARD_FILL`` inserts bars carrying the previous close into OHLC and
-    marks every inserted row as reconstructed.
+    marks every inserted row as reconstructed. Closed-market intervals are
+    never filled.
     """
     if method in {ReconstructionMethod.NONE, ReconstructionMethod.MARK_GAP}:
         return normalize_frame(frame, SeriesKind.CANDLES)
@@ -50,17 +55,9 @@ def reconstruct_candles(
         return normalize_frame(frame, SeriesKind.CANDLES)
 
     tf = assert_available_timeframe(timeframe)
-    delta = timeframe_delta(tf)
     base = normalize_frame(frame, SeriesKind.CANDLES)
     times = pd.to_datetime(base["time"], utc=True)
-    expected = pd.date_range(
-        start=times.iloc[0],
-        end=times.iloc[-1],
-        freq=pd.Timedelta(delta),
-        inclusive="both",
-    )
-    existing = set(pd.DatetimeIndex(times).tolist())
-    missing = [t for t in expected if t not in existing]
+    missing = list(intra_session_missing_times(times, timeframe=tf))
     if not missing:
         return base
 
@@ -78,7 +75,7 @@ def reconstruct_candles(
             {
                 "symbol": symbol,
                 "timeframe": tf,
-                "time": ts.to_pydatetime(),
+                "time": pd.Timestamp(ts).to_pydatetime(),
                 "open": close,
                 "high": close,
                 "low": close,

@@ -165,12 +165,24 @@ def data_validate(
     symbol: Annotated[str, typer.Option("--symbol", "-s")] = ...,  # type: ignore[assignment]
     kind: Annotated[str, typer.Option("--kind", "-k", help="candles|ticks")] = "candles",
     timeframe: Annotated[str | None, typer.Option("--timeframe", "-t")] = None,
+    require_fresh: Annotated[
+        bool,
+        typer.Option(
+            "--require-fresh/--historical",
+            help="Fail when last bar is stale (default: historical — freshness informational only)",
+        ),
+    ] = False,
 ) -> None:
     """Run data-quality checks on a stored series (no fabrication)."""
     configure_logging(level="INFO")
     try:
         engine = _engine(connect_mt5=False)
-        report = engine.validate(symbol, SeriesKind(kind), timeframe=timeframe)
+        report = engine.validate(
+            symbol,
+            SeriesKind(kind),
+            timeframe=timeframe,
+            require_fresh=require_fresh,
+        )
     except Exception as exc:  # noqa: BLE001
         err_console.print(f"[red]data validate failed:[/red] {exc}")
         raise typer.Exit(1) from exc

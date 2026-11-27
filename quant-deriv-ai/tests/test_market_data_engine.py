@@ -6,6 +6,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from quant_deriv_ai.config.settings import DataSettings
 from quant_deriv_ai.execution.mt5.models import Candle, TickData
 from quant_deriv_ai.market_data.engine import MarketDataEngine
@@ -213,3 +215,101 @@ def test_no_order_side_effects_on_source(tmp_path: Path) -> None:
     start = datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
     engine.download_candles("EURUSD", "M1", start, start + timedelta(minutes=1))
     assert not hasattr(source, "order_send")
+
+
+def test_download_merges_does_not_wipe(tmp_path: Path) -> None:
+    engine = MarketDataEngine.from_root(
+        tmp_path / "data",
+        source=MockSource(),
+        settings=DataSettings(freshness_max_age_s=31_536_000),
+    )
+    start = datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
+    first = engine.download_candles("EURUSD", "M1", start, start + timedelta(minutes=10))
+    # Narrower later window must not erase earlier history.
+    second = engine.download_candles(
+        "EURUSD", "M1", start + timedelta(minutes=8), start + timedelta(minutes=12)
+    )
+    stored = engine.store.read_working(
+        symbol="EURUSD", kind=SeriesKind.CANDLES, timeframe="M1"
+    )
+    assert first.rows_written > 0
+    assert second.rows_written >= 0
+    assert len(stored) >= first.rows_written
+    times = pd.to_datetime(stored["time"], utc=True)
+    assert times.min().to_pydatetime() == start
+
+
+def test_same_second_ticks_preserved(tmp_path: Path) -> None:
+    class SameSecondSource(MockSource):
+        def copy_ticks_range(
+            self,
+            symbol: str,
+            date_from: datetime,
+            date_to: datetime,
+            *,
+            flags: int | None = None,
+        ) -> list[TickData]:
+            _ = date_to, flags
+            t = date_from.astimezone(UTC) if date_from.tzinfo else date_from.replace(tzinfo=UTC)
+            # Three distinct quotes in the same second — must all be kept.
+            return [
+                TickData(symbol=symbol, time=t, bid=1.10, ask=1.11, volume=1.0, flags=0),
+                TickData(symbol=symbol, time=t, bid=1.12, ask=1.13, volume=1.0, flags=0),
+                TickData(symbol=symbol, time=t, bid=1.14, ask=1.15, volume=2.0, flags=1),
+            ]
+
+    engine = MarketDataEngine.from_root(
+        tmp_path / "data",
+        source=SameSecondSource(),
+        settings=DataSettings(freshness_max_age_s=31_536_000),
+    )
+    start = datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
+    result = engine.download_ticks(symbol="EURUSD", date_from=start, date_to=start)
+    assert result.rows_fetched == 3
+    stored = engine.store.read_working(symbol="EURUSD", kind=SeriesKind.TICKS)
+    assert len(stored) == 3
+
+
+def test_update_ticks_fetches_full_range(tmp_path: Path) -> None:
+    class CountingSource(MockSource):
+        def __init__(self) -> None:
+            super().__init__()
+            self.range_calls = 0
+            self.from_calls: list[int] = []
+
+        def copy_ticks_range(
+            self,
+            symbol: str,
+            date_from: datetime,
+            date_to: datetime,
+            *,
+            flags: int | None = None,
+        ) -> list[TickData]:
+            self.range_calls += 1
+            return super().copy_ticks_range(symbol, date_from, date_to, flags=flags)
+
+        def copy_ticks_from(
+            self,
+            symbol: str,
+            date_from: datetime,
+            count: int,
+            *,
+            flags: int | None = None,
+        ) -> list[TickData]:
+            self.from_calls.append(count)
+            return super().copy_ticks_from(symbol, date_from, count, flags=flags)
+
+    source = CountingSource()
+    engine = MarketDataEngine.from_root(
+        tmp_path / "data",
+        source=source,
+        settings=DataSettings(freshness_max_age_s=31_536_000),
+    )
+    start = datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
+    engine.download_ticks("EURUSD", start, start + timedelta(seconds=10))
+    source.range_calls = 0
+    source.from_calls.clear()
+    engine.update_ticks("EURUSD")
+    # Must use range pagination path, not a hard-coded count=5000 from-call.
+    assert source.range_calls >= 1
+    assert 5000 not in source.from_calls

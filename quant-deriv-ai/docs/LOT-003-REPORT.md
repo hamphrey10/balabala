@@ -3,10 +3,21 @@
 **Verdict: PASS** (unit + quality + integrity + performance + lint + typecheck)  
 **Integration (real DEMO terminal download): BLOCKED**
 
-Date (UTC): 2026-11-27T13:36:01Z  
+Date (UTC): 2026-11-27T13:36:01Z (Bugbot fixes: 2026-11-27T13:47Z)  
 Package root: `/agent/repos/balabala/quant-deriv-ai/`  
 Worker: `bc-90f5937b-9d12-5e6d-a0ac-17af37164ad8`  
 Python: 3.12.3 on Linux x86_64
+
+### Bugbot follow-up (PR #6)
+
+Fixed all six review findings before merge:
+
+1. Download merges into working Parquet (no wipe of wider history)
+2. `update_ticks` fetches full range to now (paginated; no 5000 cap)
+3. Missing-bar / reconstruction are session-aware (weekends not fabricated)
+4. Freshness is informational unless `--require-fresh` / live update mode
+5. `pin_immutable` refuses if version directory already exists
+6. Tick dedupe uses full quote identity (same-second ticks preserved)
 
 ---
 

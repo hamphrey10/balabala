@@ -19,7 +19,7 @@ from quant_deriv_ai.market_data.models import (
     SeriesStats,
     UpdateResult,
 )
-from quant_deriv_ai.market_data.normalize import normalize_frame
+from quant_deriv_ai.market_data.normalize import dedupe_subset, normalize_frame
 from quant_deriv_ai.market_data.quality import validate_series
 from quant_deriv_ai.market_data.reconstruct import reconstruct_candles
 from quant_deriv_ai.market_data.timeframes import AVAILABLE_TIMEFRAMES, assert_available_timeframe
@@ -74,13 +74,18 @@ class MarketDataEngine:
                 method=reconstruct,
                 allow=self.settings.allow_reconstruction,
             )
-        # Dedupe before write
-        deduped = frame.drop_duplicates(subset=["time", "timeframe"], keep="last")
+        # Dedupe incoming batch, then merge into existing working series (never wipe).
+        deduped = frame.drop_duplicates(subset=dedupe_subset(SeriesKind.CANDLES), keep="last")
         rows_deduped = before - len(deduped) if before >= len(deduped) else 0
-        stats = self.store.write_working(
+        before_n = len(
+            self.store.read_working(symbol=symbol, kind=SeriesKind.CANDLES, timeframe=tf)
+        )
+        stats = self.store.append_working(
             deduped, symbol=symbol, kind=SeriesKind.CANDLES, timeframe=tf
         )
-        quality = self.validate(symbol, SeriesKind.CANDLES, timeframe=tf)
+        quality = self.validate(
+            symbol, SeriesKind.CANDLES, timeframe=tf, require_fresh=False
+        )
         version = None
         if pin_version is not None:
             # pin_version="" means auto version stamp
@@ -98,7 +103,7 @@ class MarketDataEngine:
             kind=SeriesKind.CANDLES,
             timeframe=tf,
             rows_fetched=before,
-            rows_written=stats.row_count,
+            rows_written=max(0, stats.row_count - before_n),
             rows_deduped=max(0, rows_deduped),
             first_time=stats.first_time,
             last_time=stats.last_time,
@@ -121,9 +126,11 @@ class MarketDataEngine:
         frame = self.collector.download_ticks(symbol, date_from, date_to, count=count)
         before = len(frame)
         frame = normalize_frame(frame, SeriesKind.TICKS)
-        deduped = frame.drop_duplicates(subset=["time"], keep="last")
-        stats = self.store.write_working(deduped, symbol=symbol, kind=SeriesKind.TICKS)
-        quality = self.validate(symbol, SeriesKind.TICKS)
+        # Never collapse same-second ticks — dedupe on full quote identity.
+        deduped = frame.drop_duplicates(subset=dedupe_subset(SeriesKind.TICKS), keep="last")
+        before_n = len(self.store.read_working(symbol=symbol, kind=SeriesKind.TICKS))
+        stats = self.store.append_working(deduped, symbol=symbol, kind=SeriesKind.TICKS)
+        quality = self.validate(symbol, SeriesKind.TICKS, require_fresh=False)
         version = None
         if pin_version is not None:
             manifest = self.store.pin_immutable(
@@ -137,7 +144,7 @@ class MarketDataEngine:
             symbol=symbol,
             kind=SeriesKind.TICKS,
             rows_fetched=before,
-            rows_written=stats.row_count,
+            rows_written=max(0, stats.row_count - before_n),
             rows_deduped=max(0, before - len(deduped)),
             first_time=stats.first_time,
             last_time=stats.last_time,
@@ -188,7 +195,9 @@ class MarketDataEngine:
         stats = self.store.append_working(
             frame, symbol=symbol, kind=SeriesKind.CANDLES, timeframe=tf
         )
-        quality = self.validate(symbol, SeriesKind.CANDLES, timeframe=tf)
+        quality = self.validate(
+            symbol, SeriesKind.CANDLES, timeframe=tf, require_fresh=True
+        )
         return UpdateResult(
             symbol=symbol,
             kind=SeriesKind.CANDLES,
@@ -209,9 +218,11 @@ class MarketDataEngine:
         else:
             since = pd.to_datetime(existing["time"], utc=True).iloc[-1].to_pydatetime()
         before_n = len(existing)
-        frame = self.collector.continuous_ticks(symbol, since=since)
+        until = datetime.now(UTC)
+        # Full range to now (paginated) — never a fixed 5000-tick cap.
+        frame = self.collector.continuous_ticks(symbol, since=since, until=until)
         stats = self.store.append_working(frame, symbol=symbol, kind=SeriesKind.TICKS)
-        quality = self.validate(symbol, SeriesKind.TICKS)
+        quality = self.validate(symbol, SeriesKind.TICKS, require_fresh=True)
         return UpdateResult(
             symbol=symbol,
             kind=SeriesKind.TICKS,
@@ -228,6 +239,7 @@ class MarketDataEngine:
         timeframe: str | None = None,
         *,
         now: datetime | None = None,
+        require_fresh: bool = False,
     ) -> QualityReport:
         frame = self.store.read_working(symbol=symbol, kind=kind, timeframe=timeframe)
         return validate_series(
@@ -238,6 +250,7 @@ class MarketDataEngine:
             now=now,
             freshness_max_age_s=self.settings.freshness_max_age_s,
             outlier_zscore=self.settings.outlier_zscore,
+            require_fresh=require_fresh,
         )
 
     def inspect(
@@ -274,8 +287,11 @@ class MarketDataEngine:
         *,
         version: str | None = None,
         notes: str = "",
+        require_fresh: bool = False,
     ) -> DatasetManifest:
-        quality = self.validate(symbol, kind, timeframe=timeframe)
+        quality = self.validate(
+            symbol, kind, timeframe=timeframe, require_fresh=require_fresh
+        )
         return self.store.pin_immutable(
             symbol=symbol,
             kind=kind,

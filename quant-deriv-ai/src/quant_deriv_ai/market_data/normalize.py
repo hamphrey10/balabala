@@ -141,15 +141,26 @@ def normalize_frame(frame: pd.DataFrame, kind: SeriesKind) -> pd.DataFrame:
     return out
 
 
+def dedupe_subset(kind: SeriesKind) -> list[str]:
+    """Columns that identify a unique row.
+
+    Candles: one bar per (time, timeframe).
+    Ticks: MT5 ``time`` is second-resolution, so many valid ticks share a second.
+    Deduplicate on the full quote identity, never on ``time`` alone.
+    """
+    if kind is SeriesKind.CANDLES:
+        return ["time", "timeframe"]
+    return ["time", "bid", "ask", "last", "volume", "flags"]
+
+
 def merge_incremental(existing: pd.DataFrame, new: pd.DataFrame, kind: SeriesKind) -> pd.DataFrame:
-    """Append new rows, drop exact time duplicates (keep last), keep UTC order."""
+    """Append new rows, drop exact identity duplicates (keep last), keep UTC order."""
     if existing.empty:
         return normalize_frame(new, kind)
     if new.empty:
         return normalize_frame(existing, kind)
     combined = pd.concat([existing, new], ignore_index=True)
     combined = normalize_frame(combined, kind)
-    # Deduplicate on time (+ timeframe for candles) keeping the newest write.
-    subset = ["time", "timeframe"] if kind is SeriesKind.CANDLES else ["time"]
+    subset = dedupe_subset(kind)
     combined = combined.drop_duplicates(subset=subset, keep="last").reset_index(drop=True)
     return combined

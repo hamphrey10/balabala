@@ -124,19 +124,30 @@ class MarketDataStore:
         dataset_id = _dataset_id(symbol=symbol, kind=kind, timeframe=timeframe)
         ver = version or datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         dest_dir = self.paths.version_dir(dataset_id, ver)
-        if dest_dir.exists():
-            existing = self.metadata.get_version(dataset_id, ver)
-            if existing is not None and existing.status is DatasetStatus.IMMUTABLE:
-                # Idempotent if content matches
-                current_hash = content_hash_file(
-                    self.paths.working_parquet(kind=kind, symbol=symbol, timeframe=timeframe)
-                )
-                if existing.content_hash == current_hash:
-                    return existing
-                msg = f"immutable version already exists: {dataset_id}@{ver}"
-                raise PersistenceError(msg)
-
         dest_parquet = self.paths.version_parquet(dataset_id, ver)
+        working_path = self.paths.working_parquet(
+            kind=kind, symbol=symbol, timeframe=timeframe
+        )
+        current_hash = content_hash_file(working_path)
+
+        # Refuse any overwrite when the version directory already exists, even if
+        # SQLite registration failed mid-flight on a prior attempt.
+        if dest_dir.exists() or dest_parquet.exists():
+            existing = self.metadata.get_version(dataset_id, ver)
+            if (
+                existing is not None
+                and existing.status is DatasetStatus.IMMUTABLE
+                and existing.content_hash == current_hash
+                and dest_parquet.is_file()
+                and content_hash_file(dest_parquet) == current_hash
+            ):
+                return existing
+            msg = (
+                f"immutable version path already exists: {dataset_id}@{ver} "
+                f"({dest_dir}) — refuse overwrite"
+            )
+            raise PersistenceError(msg)
+
         digest = write_parquet(working, dest_parquet, kind=kind)
         times = pd.to_datetime(working["time"], utc=True)
         first = times.iloc[0].to_pydatetime()

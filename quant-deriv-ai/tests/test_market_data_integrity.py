@@ -108,6 +108,24 @@ def test_immutable_reject_hash_change_reregister(tmp_path: Path) -> None:
         )
 
 
+def test_pin_refuses_orphan_version_directory(tmp_path: Path) -> None:
+    """If the version dir exists without a matching IMMUTABLE row, refuse overwrite."""
+    store = MarketDataStore(tmp_path / "data")
+    store.write_working(
+        _frame(), symbol="XAUUSD", kind=SeriesKind.CANDLES, timeframe="M1"
+    )
+    orphan = store.paths.version_dir("XAUUSD_candles_M1", "v-orphan")
+    orphan.mkdir(parents=True, exist_ok=True)
+    (orphan / "data.parquet").write_bytes(b"not-a-real-parquet")
+    with pytest.raises(PersistenceError, match="already exists"):
+        store.pin_immutable(
+            symbol="XAUUSD",
+            kind=SeriesKind.CANDLES,
+            timeframe="M1",
+            version="v-orphan",
+        )
+
+
 def test_duckdb_view_query(tmp_path: Path) -> None:
     store = MarketDataStore(tmp_path / "data")
     store.write_working(

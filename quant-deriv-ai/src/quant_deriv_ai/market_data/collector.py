@@ -17,6 +17,9 @@ from quant_deriv_ai.market_data.timeframes import assert_available_timeframe
 
 log = get_logger(__name__)
 
+# MT5 Python docs: copy_ticks_* may return at most this many rows per call.
+_TICK_PAGE_SIZE = 100_000
+
 
 class MarketDataSource(Protocol):
     """Minimal read-only source protocol (satisfied by ``Mt5Client``)."""
@@ -85,25 +88,23 @@ class MarketDataCollector:
         *,
         count: int | None = None,
     ) -> pd.DataFrame:
-        end = date_to or datetime.now(UTC)
+        end = _as_utc(date_to or datetime.now(UTC))
+        start = _as_utc(date_from)
         self._source.symbol_select(symbol, True)
         if count is not None:
-            ticks = self._source.copy_ticks_from(symbol, date_from, count)
-        elif hasattr(self._source, "copy_ticks_range"):
-            ticks = self._source.copy_ticks_range(symbol, date_from, end)
+            ticks = self._source.copy_ticks_from(symbol, start, count)
+            frame = ticks_to_frame(ticks)
+            if not frame.empty:
+                end_ts = pd.Timestamp(end)
+                frame = frame.loc[frame["time"] <= end_ts].reset_index(drop=True)
         else:
-            # Fallback: bounded from-start fetch when range API absent.
-            ticks = self._source.copy_ticks_from(symbol, date_from, 100_000)
-        # Filter to window when using from/count
-        frame = ticks_to_frame(ticks)
-        if not frame.empty and date_to is not None:
-            end_ts = pd.Timestamp(end if end.tzinfo else end.replace(tzinfo=UTC))
-            frame = frame.loc[frame["time"] <= end_ts].reset_index(drop=True)
+            frame = self._download_ticks_range_paginated(symbol, start, end)
         log.info(
-            "collected ticks symbol={} rows={} from={}",
+            "collected ticks symbol={} rows={} from={} to={}",
             symbol,
             len(frame),
-            date_from.isoformat(),
+            start.isoformat(),
+            end.isoformat(),
         )
         return frame
 
@@ -112,9 +113,65 @@ class MarketDataCollector:
         symbol: str,
         *,
         since: datetime | None = None,
+        until: datetime | None = None,
         lookback: timedelta = timedelta(minutes=5),
-        count: int = 5_000,
     ) -> pd.DataFrame:
-        """Fetch a short recent tick window for continuous / incremental updates."""
-        start = since or (datetime.now(UTC) - lookback)
-        return self.download_ticks(symbol, start, count=count)
+        """Fetch ticks from ``since`` through ``until`` (default: now), paginated.
+
+        Does **not** cap at a fixed count — callers that need a bounded sample
+        should use ``download_ticks(..., count=...)`` explicitly.
+        """
+        start = _as_utc(since or (datetime.now(UTC) - lookback))
+        end = _as_utc(until or datetime.now(UTC))
+        return self.download_ticks(symbol, start, end)
+
+    def _download_ticks_range_paginated(
+        self,
+        symbol: str,
+        date_from: datetime,
+        date_to: datetime,
+    ) -> pd.DataFrame:
+        """Fetch the full [from, to] tick window, paging when MT5 truncates."""
+        chunks: list[pd.DataFrame] = []
+        cursor = date_from
+        end = date_to
+        end_ts = pd.Timestamp(end)
+        pages = 0
+        use_range = hasattr(self._source, "copy_ticks_range")
+        # Allow from == to (same-second windows with multiple ticks).
+        while cursor <= end:
+            pages += 1
+            if use_range:
+                batch = self._source.copy_ticks_range(symbol, cursor, end)
+            else:
+                batch = self._source.copy_ticks_from(symbol, cursor, _TICK_PAGE_SIZE)
+            if not batch:
+                break
+            frame = ticks_to_frame(batch)
+            if frame.empty:
+                break
+            frame = frame.loc[frame["time"] <= end_ts].reset_index(drop=True)
+            if frame.empty:
+                break
+            chunks.append(frame)
+            last_time = pd.to_datetime(frame["time"], utc=True).iloc[-1].to_pydatetime()
+            # Advance past the last observed second (MT5 tick time is second-res).
+            next_cursor = last_time + timedelta(seconds=1)
+            if next_cursor <= cursor:
+                break
+            cursor = next_cursor
+            # Short page ⇒ terminal returned everything available for this window.
+            if len(batch) < _TICK_PAGE_SIZE:
+                break
+            if pages > 10_000:
+                log.warning("tick pagination safety stop pages={}", pages)
+                break
+        if not chunks:
+            return ticks_to_frame([])
+        return pd.concat(chunks, ignore_index=True)
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
