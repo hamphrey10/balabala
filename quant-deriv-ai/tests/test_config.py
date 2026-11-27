@@ -24,6 +24,9 @@ def test_load_default_config() -> None:
     assert cfg.technical.volume_is_synthetic is True
     assert cfg.technical.sma_fast == 20
     assert cfg.technical.sma_slow == 50
+    assert cfg.quantitative.min_forward_lag == 1
+    assert cfg.quantitative.edge_min_observations == 30
+    assert cfg.quantitative.reports_dir == "reports"
 
 
 def test_validate_trading_mode_demo() -> None:

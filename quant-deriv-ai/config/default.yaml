@@ -58,6 +58,20 @@ technical:
   sma_fast: 20
   sma_slow: 50
 
+quantitative:
+  # LOT-005 — Quantitative Research Agent (stats lab / edge probes / reports).
+  # Forward lag must stay >= 1 to forbid same-bar look-ahead.
+  min_forward_lag: 1
+  default_forward_horizon: 1
+  reports_dir: reports
+  annualization_factor: 252.0
+  edge_min_observations: 30
+  momentum_lookback: 10
+  rsi_period: 14
+  rsi_low: 30.0
+  rsi_high: 70.0
+  return_method: log
+
 logging:
   structured: true
   serialize: false

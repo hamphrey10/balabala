@@ -100,6 +100,23 @@ class TechnicalSettings(BaseModel):
     sma_slow: int = Field(default=50, ge=2, le=1000)
 
 
+class QuantitativeSettings(BaseModel):
+    """Quantitative research defaults (LOT-005) — no orders."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    min_forward_lag: int = Field(default=1, ge=1, le=100)
+    default_forward_horizon: int = Field(default=1, ge=1, le=100)
+    reports_dir: str = "reports"
+    annualization_factor: float = Field(default=252.0, gt=0.0, le=1_000_000.0)
+    edge_min_observations: int = Field(default=30, ge=1, le=1_000_000)
+    momentum_lookback: int = Field(default=10, ge=1, le=500)
+    rsi_period: int = Field(default=14, ge=2, le=500)
+    rsi_low: float = Field(default=30.0, ge=0.0, le=100.0)
+    rsi_high: float = Field(default=70.0, ge=0.0, le=100.0)
+    return_method: str = "log"
+
+
 class QuantConfig(BaseModel):
     """Root configuration document."""
 
@@ -111,6 +128,7 @@ class QuantConfig(BaseModel):
     mt5: Mt5Settings = Field(default_factory=Mt5Settings)
     data: DataSettings = Field(default_factory=DataSettings)
     technical: TechnicalSettings = Field(default_factory=TechnicalSettings)
+    quantitative: QuantitativeSettings = Field(default_factory=QuantitativeSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
 

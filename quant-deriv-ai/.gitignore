@@ -41,6 +41,7 @@ Thumbs.db
 
 # Local data / artifacts (runtime)
 data/
+reports/
 logs/
 *.db
 *.sqlite
